@@ -1,0 +1,13 @@
+# Directories
+/.vscode/
+**/dist/
+**/venv/
+**/.venv/
+**/.idea/
+**/__pycache__/
+**/build/
+*.egg-info/
+
+# Files
+requirements.txt
+*.pyc
