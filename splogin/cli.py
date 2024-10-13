@@ -1,7 +1,9 @@
 from argparse import Action, ArgumentParser, Namespace
+from os import getenv
 from typing import Any, Sequence
 
 from .credentials import main as splogin_user
+from .splogin import main as splogin_main
 from .validate import main as splogin_validate
 
 
@@ -33,17 +35,52 @@ class CommandLineInterface:
             "splogin",
             description="Automated Spotify Web login and cookie extraction"
         )
-        self._add_common_options(lambda args: print("splogin |", args))
+        self._add_main_options()
+        self._add_common_options(splogin_main)
         
-        self.subcommands = self.argument_parser.add_subparsers(
-            # help="available helper commands",
-        )
+        self.subcommands = self.argument_parser.add_subparsers()
         self.add_user_command()
         self.add_validate_command()
         
         self.args = self.argument_parser.parse_args()
         self.args.func(self.args)
 
+    def _add_main_options(self) -> None:
+        def add_env_var_arg(flag: str, message: str, var: str, default: Any):
+            self.argument_parser.add_argument(
+                flag,
+                help=message,
+                metavar="<value>",
+                default=getenv("SPLOGIN_" + var, default)
+        )
+
+        add_env_var_arg(
+            "--spotify-login-page",
+            "URL for the Spotify Login Page",
+            "SPOTIFY_LOGIN_PAGE",
+            "https://accounts.spotify.com/de/login"
+        )
+
+        add_env_var_arg(
+            "--spotify-login-button",
+            "HTML element ID of login button on Spotify Login Page",
+            "SPOTIFY_LOGIN_BUTTON",
+            "login-button"
+        )
+
+        add_env_var_arg(
+            "--spotify-password-field",
+            "HTML element ID of password field on Spotify Login Page",
+            "SPOTIFY_PASSWORD_FIELD",
+            "login-password"
+        )
+        add_env_var_arg(
+            "--spotify-username-field",
+            "HTML element ID of username field on Spotify Login Page",
+            "SPOTIFY_USERNAME_FIELD",
+            "login-username"
+        )
+    
     def add_user_command(self) -> None:
         
         message = "Manage Spotify credentials using python-keyring"
