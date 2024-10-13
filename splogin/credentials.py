@@ -6,9 +6,6 @@ from keyring.credentials import Credential
 from . import get_logger
 
 
-DEFAULT_SERVICE_NAME = "splogin://spotify"
-
-
 class CredentialsException(BaseException):
     pass
 
@@ -21,11 +18,14 @@ class CredentialManager:
         self.username = self._credentials.username
         self.password = self._credentials.password
 
-    def validate(self, username: str) -> Credential:
+    def validate(self, username: str | None) -> Credential:
         """Raises Exception if credentials for user are not found."""
         credentials = keyring.get_credential(self.service_name, username) 
         if credentials is None:
-            raise CredentialsException(f"no password for {username}")
+            message = f"no password for {username}"
+            if username is None:
+                message = "no credentials found"
+            raise CredentialsException(message)
         return credentials
 
     def update(self, password: str | None) -> Credential:
@@ -36,7 +36,7 @@ class CredentialManager:
     
     @staticmethod
     def password_prompt() -> str:
-        return getpass.getpass("Enter Password: ")
+        return getpass.getpass("Enter Password: ").strip()
     
     @classmethod
     def add(cls, service_name: str, username: str, password: str | None):
@@ -66,10 +66,7 @@ def main(args) -> None:
         else:
             log.info("found credentials for %s", credentials.username)
     except CredentialsException as exc:
-        if args.action in ("del", "get"):
-            log.error("could not perform action: %s: %s", exc)
-            log.debug(exc, exc_info=True)
-        elif args.action == "set":
+        if args.action == "set":
             try:
                 credentials = CredentialManager.add(
                     service_name, args.username, args.password
@@ -79,7 +76,7 @@ def main(args) -> None:
                 log.error("could not add user: %s", exc)
                 log.debug(exc, exc_info=True)
         else:
-            log.warning("no credentials found")
+            log.warning(exc)
     except Exception as exc:
         log.critical("Unexpected Error", exc_info=True)
         
