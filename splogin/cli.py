@@ -2,7 +2,7 @@ from argparse import Action, ArgumentParser, Namespace
 from typing import Any, Sequence
 
 from .credentials import main as splogin_user
-from .validate import validate as splogin_validate
+from .validate import main as splogin_validate
 
 
 class StoreMutuallyExclusiveFlags(Action):
