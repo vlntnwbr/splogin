@@ -1,7 +1,9 @@
 from argparse import Action, ArgumentParser, Namespace
 from typing import Any, Sequence
 
-from .credentials import main as user_management
+from .credentials import main as splogin_user
+from .validate import validate as splogin_validate
+
 
 class StoreMutuallyExclusiveFlags(Action):
     """A custom argparse action to store the flag of an argument."""
@@ -31,12 +33,13 @@ class CommandLineInterface:
             "splogin",
             description="Automated Spotify Web login and cookie extraction"
         )
-        self.add_common_options(lambda args: print("splogin |", args))
+        self._add_common_options(lambda args: print("splogin |", args))
         
         self.subcommands = self.argument_parser.add_subparsers(
-            help="available helper commands",
+            # help="available helper commands",
         )
         self.add_user_command()
+        self.add_validate_command()
         
         self.args = self.argument_parser.parse_args()
         self.args.func(self.args)
@@ -45,9 +48,7 @@ class CommandLineInterface:
         
         message = "Manage Spotify credentials using python-keyring"
         sub_parser = self.subcommands.add_parser(
-            "user",
-            description=message,
-            help=message
+            "user", description=message, help=message
         )
 
         add_action = lambda flag, message: sub_parser.add_argument(
@@ -69,9 +70,17 @@ class CommandLineInterface:
             help="Password for set option. Use for non-interactive mode.",
         )
 
-        self.add_common_options(user_management, sub_parser)
+        self._add_common_options(splogin_user, sub_parser)
     
-    def add_common_options(
+    def add_validate_command(self) -> None:
+        
+        message = "Check if all requirements are met for running splogin."
+        sub_parser = self.subcommands.add_parser(
+            "validate", description=message, help=message            
+        )
+        self._add_common_options(splogin_validate, sub_parser)
+    
+    def _add_common_options(
         self,
         handler: callable,
         parser: ArgumentParser | None = None
@@ -85,6 +94,7 @@ class CommandLineInterface:
             "--log",
             help="set the logging level, default: WARNING",
             dest="log_level",
+            type=lambda val: val.upper(),
             metavar="level",
             default="WARNING",
         )
