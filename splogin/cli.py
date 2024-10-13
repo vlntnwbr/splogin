@@ -4,6 +4,7 @@ from typing import Any, Sequence
 
 from .credentials import main as splogin_user
 from .splogin import main as splogin_main
+from .hass import main as splogin_hass
 from .validate import main as splogin_validate
 
 
@@ -40,6 +41,7 @@ class CommandLineInterface:
         
         self.subcommands = self.argument_parser.add_subparsers()
         self.add_user_command()
+        self.add_hass_command()
         self.add_validate_command()
         
         self.args = self.argument_parser.parse_args()
@@ -81,11 +83,15 @@ class CommandLineInterface:
             "login-username"
         )
     
+    def _add_subcommand(self, name: str, help_message: str) -> ArgumentParser:
+        return self.subcommands.add_parser(
+            name, description=help_message, help=help_message
+        )
+    
     def add_user_command(self) -> None:
         
-        message = "Manage Spotify credentials using python-keyring"
-        sub_parser = self.subcommands.add_parser(
-            "user", description=message, help=message
+        sub_parser = self._add_subcommand(
+            "user", "Manage Spotify credentials using python-keyring"
         )
 
         add_action = lambda flag, message: sub_parser.add_argument(
@@ -109,11 +115,21 @@ class CommandLineInterface:
 
         self._add_common_options(splogin_user, sub_parser)
     
+    def add_hass_command(self) -> None:
+        sub_parser = self._add_subcommand(
+            "hass", "Manage Home Assistant Token using python-keyring"
+        )
+
+        # TODO add argument token
+        # TODO add argument for hass instance url via method
+            # TODO add argument also to validate command)
+
+        self._add_common_options(splogin_hass, sub_parser)
+    
     def add_validate_command(self) -> None:
         
-        message = "Check if all requirements are met for running splogin."
-        sub_parser = self.subcommands.add_parser(
-            "validate", description=message, help=message            
+        sub_parser = self._add_subcommand(
+            "validate", "Check if splogin is ready to run"
         )
         self._add_common_options(splogin_validate, sub_parser)
     
