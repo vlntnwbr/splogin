@@ -1,7 +1,7 @@
-from . import get_logger
-
-from .credentials import CredentialManager, CredentialsException
+from . import CredentialsException, get_logger
+from .credentials import CredentialManager
 from .splogin import check_browser_launch
+
 
 def main(args):
     service_name = "splogin-validate"

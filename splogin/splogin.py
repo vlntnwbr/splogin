@@ -2,8 +2,8 @@ import logging
 
 from playwright.sync_api import sync_playwright
 
-from . import get_logger
-from .credentials import CredentialManager, CredentialsException
+from . import get_logger, CredentialsException
+from .credentials import CredentialManager
 
 
 class BrowserNotFoundException(BaseException): pass

@@ -3,11 +3,7 @@ import getpass
 import keyring
 from keyring.credentials import Credential
 
-from . import get_logger
-
-
-class CredentialsException(BaseException):
-    pass
+from . import CredentialsException, get_logger
 
 
 class CredentialManager:

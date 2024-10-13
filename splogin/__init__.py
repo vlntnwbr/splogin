@@ -1,6 +1,10 @@
 import logging
 
 
+class CredentialsException(BaseException):
+    pass
+
+
 def get_logger(name: str, level: int | str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
