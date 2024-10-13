@@ -1,4 +1,4 @@
-from argparse import Action, ArgumentParser, ArgumentTypeError, Namespace
+from argparse import Action, ArgumentParser, Namespace
 from typing import Any, Sequence
 
 from .credentials import main as user_management
@@ -26,14 +26,16 @@ class StoreMutuallyExclusiveFlags(Action):
 class CommandLineInterface:
 
     def __init__(self):
+        
         self.argument_parser = ArgumentParser(
             "splogin",
             description="Automated Spotify Web login and cookie extraction"
         )
+        self.add_common_options(lambda args: print("splogin |", args))
+        
         self.subcommands = self.argument_parser.add_subparsers(
             help="available helper commands",
         )
-        self.add_handler(lambda args: print("splogin |", args))
         self.add_user_command()
         
         self.args = self.argument_parser.parse_args()
@@ -41,7 +43,7 @@ class CommandLineInterface:
 
     def add_user_command(self) -> None:
         
-        message = "fetch, update or remove Spotify credentials from keyring"
+        message = "Manage Spotify credentials using python-keyring"
         sub_parser = self.subcommands.add_parser(
             "user",
             description=message,
@@ -63,19 +65,29 @@ class CommandLineInterface:
 
         sub_parser.add_argument(
             "--password",
+            metavar="password",
             help="Password for set option. Use for non-interactive mode.",
         )
 
-        self.add_handler(user_management, sub_parser)
+        self.add_common_options(user_management, sub_parser)
     
-    def add_handler(
+    def add_common_options(
         self,
         handler: callable,
         parser: ArgumentParser | None = None
     ) -> None:
+        
         if parser is None:
             parser = self.argument_parser
         parser.set_defaults(func=handler)
+        
+        parser.add_argument(
+            "--log",
+            help="set the logging level, default: WARNING",
+            dest="log_level",
+            metavar="level",
+            default="WARNING",
+        )
 
 
 if __name__ == "__main__":

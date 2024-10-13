@@ -3,6 +3,8 @@ import getpass
 import keyring
 from keyring.credentials import Credential
 
+from . import get_logger
+
 
 DEFAULT_SERVICE_NAME = "splogin://spotify"
 
@@ -51,30 +53,35 @@ class CredentialManager:
     
 def main(args) -> None:
     service_name = "splogin-user"
-    print(service_name, "|", args)
+    log = get_logger(service_name, args.log_level)
+    log.debug(args)
     try:
         credentials = CredentialManager(service_name, args.username)
         if args.action == "del":
             credentials.delete()
-            print(f"removed credentials for {credentials.username}")
+            log.warning("removed credentials for %s", credentials.username)
         elif args.action == "set":
             credentials.update(args.password)
-            print(f"updated credentials for {credentials.username}")
+            log.info("updated credentials for %s", credentials.username)
         else:
-            print(f"found credentials for {credentials.username}")
+            log.info("found credentials for %s", credentials.username)
     except CredentialsException as exc:
         if args.action in ("del", "get"):
-            print(exc)
+            log.error("could not perform action: %s: %s", exc)
+            log.debug(exc, exc_info=True)
         elif args.action == "set":
             try:
                 credentials = CredentialManager.add(
                     service_name, args.username, args.password
                 )
-                print(f"added credentials for {credentials.username}")
+                log.info("added credentials for %s", credentials.username)
             except CredentialsException as exc:
-                print(exc)
+                log.error("could not add user: %s", exc)
+                log.debug(exc, exc_info=True)
         else:
-            print("no credentials found")
+            log.warning("no credentials found")
+    except Exception as exc:
+        log.critical("Unexpected Error", exc_info=True)
         
 
 if __name__ == "__main__":
