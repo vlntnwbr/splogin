@@ -50,10 +50,10 @@ class HomeAssistant:
         return cls(log)
         
     def check_api_connection(self) -> bool:
-        # TODO use method for api request with error handling
         try:
             response = requests.get(self.instance_url, headers=self.base_headers)
             response.raise_for_status()
+            self.log.info("Home Assistant '%s' is available")
         except requests.ConnectionError as exc:
             raise HomeAssistantApiException(
                 f"Home Assistant '{self.instance_url}' is unreachable"
@@ -61,12 +61,24 @@ class HomeAssistant:
         except requests.RequestException as exc:
             raise HomeAssistantApiException(exc) from exc
 
-    # TODO add method for triggering a Home Assistant event
+    def trigger_event(self, event: str, payload: dict[str, Any]):
+        try:
+            self.log.debug("triggering event: %s with payload %r", event, payload)
+            response = requests.post(
+                self.instance_url + "events/" + event,
+                json=payload,
+                headers={
+                    **self.base_headers,
+                    "Content-Type": "application/json"
+            })
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise HomeAssistantApiException("unable to trigger event") from exc
     
     @property
     def base_headers(self) -> dict[str, Any]:
         return {"Authorization": "Bearer " + self.token}
-    
+
     
 def main(args) -> None:
     log = get_logger(HomeAssistant.SERVICE_NAME, args.log_level)
