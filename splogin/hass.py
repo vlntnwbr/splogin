@@ -3,6 +3,7 @@ from logging import Logger
 from typing import Any
 
 import keyring
+import keyring.errors
 import requests
 
 
@@ -40,10 +41,9 @@ class HomeAssistant:
         token: str | None
     ) -> 'HomeAssistant':
         try:
-            existing = cls(log)
-            log.info("deleting existing instance %s", existing)
-            keyring.delete_password(existing.SERVICE_NAME, existing.instance_url)
-        except (CredentialsException, HomeAssistantApiException):
+            keyring.delete_password(cls.SERVICE_NAME, url)
+            log.warning("deleted existing instance %s", url)
+        except (keyring.errors.PasswordDeleteError):
             pass
         token = getpass("Enter Token: ") if token is None else token
         keyring.set_password(cls.SERVICE_NAME, username=url, password=token)
@@ -53,7 +53,7 @@ class HomeAssistant:
         try:
             response = requests.get(self.instance_url, headers=self.base_headers)
             response.raise_for_status()
-            self.log.info("Home Assistant '%s' is available")
+            self.log.info("Home Assistant '%s' is available", self.instance_url)
         except requests.ConnectionError as exc:
             raise HomeAssistantApiException(
                 f"Home Assistant '{self.instance_url}' is unreachable"
@@ -84,8 +84,8 @@ def main(args) -> None:
     log = get_logger(HomeAssistant.SERVICE_NAME, args.log_level)
     log.debug(args)
     try:
-        log.debug("connecting to Home Assistant")
+        log.info("setting Home Assistant instance")
         hass = HomeAssistant.make_instance(log, args.instance_url, args.token)
-        log.info("created Home Assistance instance '%s'", hass.instance_url)
+        log.info("using Home Assistance instance '%s'", hass.instance_url)
     except (CredentialsException, HomeAssistantApiException) as exc:
         log_error(log, exc)
