@@ -3,7 +3,7 @@ import getpass
 import keyring
 from keyring.credentials import Credential
 
-from . import CredentialsException, get_logger
+from . import CredentialsException, get_logger, log_error
 
 
 class CredentialManager:
@@ -69,8 +69,7 @@ def main(args) -> None:
                 )
                 log.info("added credentials for %s", credentials.username)
             except CredentialsException as exc:
-                log.error("could not add user: %s", exc)
-                log.debug(exc, exc_info=True)
+                log_error(log, exc)
         else:
             log.warning(exc)
     except Exception as exc:

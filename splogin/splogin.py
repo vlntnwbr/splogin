@@ -2,7 +2,7 @@ import logging
 
 from playwright.sync_api import sync_playwright
 
-from . import get_logger, CredentialsException
+from . import CredentialsException, get_logger, log_error
 from .credentials import CredentialManager
 
 
@@ -94,5 +94,4 @@ def main(args):
         BrowserNotFoundException,
         SpotifyLoginFailed
     ) as exc:
-        log.error(exc)
-        log.debug("Error Trace", exc_info=True)
+        log_error(log, exc)
