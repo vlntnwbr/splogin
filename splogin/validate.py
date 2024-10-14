@@ -1,5 +1,6 @@
 from . import CredentialsException, get_logger
 from .credentials import CredentialManager
+from.hass import HomeAssistant, HomeAssistantApiException
 from .splogin import check_browser_launch
 
 
@@ -9,13 +10,19 @@ def main(args):
     log.debug(args)
     
     try:
-        log.info("checking Spotify credentials")
+        log.info("Checking Spotify credentials")
         credentials = CredentialManager("splogin-user")
         log.info("Using Spotify User: %s", credentials.username)
     except CredentialsException:
         log.warning("Spotify User Not Set")
     
     if check_browser_launch():
-        log.info("playwright browser is working")
+        log.info("Browser for playwright is installed")
     else:
-        log.warning("playwright cannot locate browser")
+        log.warning("Found no usable Browser for playwright")
+
+    try:
+        hass = HomeAssistant(log)
+        log.info("Using Home Assistant instance: %s", hass.instance_url)
+    except (CredentialsException, HomeAssistantApiException) as exc:
+        log.warning(exc)
