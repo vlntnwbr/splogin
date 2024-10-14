@@ -6,6 +6,9 @@ from keyring.credentials import Credential
 from . import CredentialsException, get_logger, log_error
 
 
+# TODO add exception handling for keyring
+
+
 class CredentialManager:
 
     def __init__(self, service_name: str,  username: str | None = None):
@@ -52,22 +55,22 @@ def main(args) -> None:
     log = get_logger(service_name, args.log_level)
     log.debug(args)
     try:
-        credentials = CredentialManager(service_name, args.username)
+        auth = CredentialManager(service_name, args.username)
         if args.action == "del":
-            credentials.delete()
-            log.warning("removed credentials for %s", credentials.username)
+            auth.delete()
+            log.warning("Removed Spotify credentials for %s", auth.username)
         elif args.action == "set":
-            credentials.update(args.password)
-            log.info("updated credentials for %s", credentials.username)
+            auth.update(args.password)
+            log.info("Updated Spotify credentials for %s", auth.username)
         else:
-            log.info("found credentials for %s", credentials.username)
+            log.info("Found Spotify credentials for %s", auth.username)
     except CredentialsException as exc:
         if args.action == "set":
             try:
-                credentials = CredentialManager.add(
+                auth = CredentialManager.add(
                     service_name, args.username, args.password
                 )
-                log.info("added credentials for %s", credentials.username)
+                log.info("Added Spotify credentials for %s", auth.username)
             except CredentialsException as exc:
                 log_error(log, exc)
         else:

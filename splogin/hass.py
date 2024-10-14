@@ -6,8 +6,9 @@ import keyring
 import keyring.errors
 import requests
 
-
 from . import CredentialsException, get_logger, log_error
+
+# TODO add exception handling for keyring
 
 class HomeAssistantApiException(BaseException): pass
 
@@ -31,7 +32,7 @@ class HomeAssistant:
         self.check_api_connection()
 
     def __str__(self) -> str:
-        return self.instance_url
+        return self.instance_url[:-5]
 
     @classmethod
     def make_instance(
@@ -42,7 +43,7 @@ class HomeAssistant:
     ) -> 'HomeAssistant':
         try:
             keyring.delete_password(cls.SERVICE_NAME, url)
-            log.warning("deleted existing instance %s", url)
+            log.warning("Deleted existing Home Assistant instance %s", url)
         except (keyring.errors.PasswordDeleteError):
             pass
         token = getpass("Enter Token: ") if token is None else token
@@ -84,8 +85,8 @@ def main(args) -> None:
     log = get_logger(HomeAssistant.SERVICE_NAME, args.log_level)
     log.debug(args)
     try:
-        log.info("setting Home Assistant instance")
+        log.info("Setting Home Assistant instance")
         hass = HomeAssistant.make_instance(log, args.instance_url, args.token)
-        log.info("using Home Assistance instance '%s'", hass.instance_url)
+        log.info("Using Home Assistance instance '%s'", hass.instance_url)
     except (CredentialsException, HomeAssistantApiException) as exc:
         log_error(log, exc)
