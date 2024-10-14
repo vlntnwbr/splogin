@@ -36,58 +36,50 @@ class CommandLineInterface:
             "splogin",
             description="Automated Spotify Web login and cookie extraction"
         )
-        self._add_main_options()
-        self._add_common_options(splogin_main)
         
         self.subcommands = self.argument_parser.add_subparsers()
         self.add_user_command()
         self.add_hass_command()
         self.add_validate_command()
+
+        self.add_main_options()
         
         self.args = self.argument_parser.parse_args()
         self.args.func(self.args)
 
-    def _add_main_options(self) -> None:
-        def add_env_var_arg(flag: str, message: str, var: str, default: Any):
-            self.argument_parser.add_argument(
-                flag,
-                help=message,
-                metavar="<value>",
-                default=getenv("SPLOGIN_" + var, default)
-        )
+    def add_main_options(self) -> None:
 
-        add_env_var_arg(
+        self._add_env_var_arg(
             "--spotify-login-page",
             "URL for the Spotify Login Page",
             "SPOTIFY_LOGIN_PAGE",
-            "https://accounts.spotify.com/de/login"
+            "https://accounts.spotify.com/de/login",
+            metavar="URL"
         )
 
-        add_env_var_arg(
+        self._add_env_var_arg(
             "--spotify-login-button",
             "HTML element ID of login button on Spotify Login Page",
             "SPOTIFY_LOGIN_BUTTON",
             "login-button"
         )
 
-        add_env_var_arg(
+        self._add_env_var_arg(
             "--spotify-password-field",
             "HTML element ID of password field on Spotify Login Page",
             "SPOTIFY_PASSWORD_FIELD",
             "login-password"
         )
-        add_env_var_arg(
+        
+        self._add_env_var_arg(
             "--spotify-username-field",
             "HTML element ID of username field on Spotify Login Page",
             "SPOTIFY_USERNAME_FIELD",
             "login-username"
         )
-    
-    def _add_subcommand(self, name: str, help_message: str) -> ArgumentParser:
-        return self.subcommands.add_parser(
-            name, description=help_message, help=help_message
-        )
-    
+
+        self._add_common_options(splogin_main)
+
     def add_user_command(self) -> None:
         
         sub_parser = self._add_subcommand(
@@ -97,7 +89,7 @@ class CommandLineInterface:
         add_action = lambda flag, message: sub_parser.add_argument(
             flag,
             dest="username",
-            metavar="user",
+            metavar="USER",
             action=StoreMutuallyExclusiveFlags,
             help=message + " Spotify Email or username"
         )
@@ -109,7 +101,7 @@ class CommandLineInterface:
 
         sub_parser.add_argument(
             "--password",
-            metavar="password",
+            metavar="PASSWORD",
             help="Password for set option. Use for non-interactive mode.",
         )
 
@@ -117,21 +109,47 @@ class CommandLineInterface:
     
     def add_hass_command(self) -> None:
         sub_parser = self._add_subcommand(
-            "hass", "Manage Home Assistant Token using python-keyring"
+            "hass", "Manage Home Assistant instance using python-keyring"
         )
 
-        # TODO add argument token
-        # TODO add argument for hass instance url via method
-            # TODO add argument also to validate command)
+        self._add_env_var_arg(
+            flag="instance_url",
+            message="URL (with scheme & port) for Home Assistance instance",
+            env_var="HASS_INSTANCE_URL",
+            default="https://hass.vweber.eu",
+            metavar="instance-url",
+            parser=sub_parser,
+        )
+
+        self._add_env_var_arg(
+            flag="--token",
+            message="Bearer Token for Home Assistant API authentication",
+            env_var="HASS_TOKEN",
+            default=None,
+            metavar="TOKEN",
+            parser=sub_parser
+        )
+        
+        # sub_parser.add_argument(
+        #     "--token",
+        #     help="Token for Home Assistant API authentication"
+        # )
 
         self._add_common_options(splogin_hass, sub_parser)
-    
+
+        # TODO add argument also to validate command)
+
     def add_validate_command(self) -> None:
         
         sub_parser = self._add_subcommand(
             "validate", "Check if splogin is ready to run"
         )
         self._add_common_options(splogin_validate, sub_parser)
+        
+    def _add_subcommand(self, name: str, help_message: str) -> ArgumentParser:
+        return self.subcommands.add_parser(
+            name, description=help_message, help=help_message
+        )
     
     def _add_common_options(
         self,
@@ -142,16 +160,35 @@ class CommandLineInterface:
         if parser is None:
             parser = self.argument_parser
         parser.set_defaults(func=handler)
-        
+
         parser.add_argument(
             "--log",
-            help="set the logging level, default: WARNING",
+            help="set the logging level, default: INFO",
             dest="log_level",
             type=lambda val: val.upper(),
             metavar="level",
-            default="WARNING",
+            default="INFO",
         )
 
+    def _add_env_var_arg(
+        self,
+        flag: str,
+        message: str,
+        env_var: str,
+        default: Any,
+        metavar: str = "ELEMENT_ID",
+        parser: ArgumentParser | None = None
+    ) -> None:
+        
+        if parser is None:
+            parser = self.argument_parser
+
+        parser.add_argument(
+            flag,
+            help=message,
+            metavar=metavar,
+            default=getenv("SPLOGIN_" + env_var, default)
+    )
 
 if __name__ == "__main__":
     CommandLineInterface()
