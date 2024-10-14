@@ -46,6 +46,8 @@ class SpLogin:
         
 
     def perform_spotify_login(self):
+        # TODO exception handling
+        # TODO better logging
         with sync_playwright() as playwright:
             
             browser = playwright.firefox.launch()
@@ -59,9 +61,9 @@ class SpLogin:
             self.log.debug("submitting login...")
             page.click("button#" + self._sp_login_button)
             page.wait_for_load_state("networkidle")
-            self.log.debug("extracting cookies")
-            cookies = context.cookies()
             try:
+                self.log.debug("extracting cookies")
+                cookies = context.cookies()
                 sp_dc = next(c for c in cookies if c["name"] == "sp_dc")
                 sp_key = next(c for c in cookies if c["name"] == "sp_key")
             except Exception as exc:
