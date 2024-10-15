@@ -1,0 +1,47 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "[checks] pipenv run bandit",
+            "detail": "Check for security vulnerabilities using python-bandit.",
+            "problemMatcher": [],
+            "command": "pipenv",
+            "args": [
+                "run", "bandit", "-r", "splogin"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "[checks] pipenv run pydocstyle",
+            "detail": "Check documentation using pydocstyle.",
+            "problemMatcher": [],
+            "command": "pipenv",
+            "args": [
+                "run", "pydocstyle", "splogin"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "[checks] pipenv run flake8",
+            "detail": "lint code using flake8.",
+            "problemMatcher": [],
+            "command": "pipenv",
+            "args": [
+                "run", "flake8", "--doctests", "--max-doc-length", "72", "splogin"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "[checks] pipenv run pylint",
+            "detail": "lint code using pylint.",
+            "problemMatcher": [],
+            "command": "pipenv",
+            "args": [
+                "run", "pylint", "-f", "colorized", "splogin"
+            ],
+            "group": "test"
+        }
+    ]
+}
