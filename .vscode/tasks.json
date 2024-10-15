@@ -4,7 +4,23 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "[checks] pipenv run bandit",
+            "label": "run all checks",
+            "detail": "pydocstyle -> pylint -> flake8 -> bandit",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "dependsOn": [
+                "pydocstyle-check",
+                "pylint-checks",
+                "flake8-checks",
+                "bandit-checks",
+            ],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "bandit-checks",
             "detail": "Check for security vulnerabilities using python-bandit.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -14,7 +30,7 @@
             "group": "test"
         },
         {
-            "label": "[checks] pipenv run pydocstyle",
+            "label": "pydocstyle-check",
             "detail": "Check documentation using pydocstyle.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -24,7 +40,7 @@
             "group": "test"
         },
         {
-            "label": "[checks] pipenv run flake8",
+            "label": "flake8-checks",
             "detail": "lint code using flake8.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -34,7 +50,7 @@
             "group": "test"
         },
         {
-            "label": "[checks] pipenv run pylint",
+            "label": "pylint-checks",
             "detail": "lint code using pylint.",
             "problemMatcher": [],
             "command": "pipenv",
