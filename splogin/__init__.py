@@ -11,6 +11,7 @@ from keyring.errors import PasswordDeleteError
 #   - add method for performing spotify login
 #   - this will be the new user command
 # TODO ensure classes only log to debug level
+#   - all custom exception messages must be pretty to read for logging
 
 
 class CredentialsException(BaseException):  # TODO Refactor to Credential
@@ -57,11 +58,11 @@ class CredentialManager:
     ) -> tuple['CredentialManager', str]:
         """Create new credentials after removing existing ones."""
         try:
-            operation = "update"
+            operation = "Updated"
             keyring.delete_password(cls.SERVICE_NAME, username)
             log.debug("deleted existing %s: %s", cls.SERVICE_NAME, username)
         except PasswordDeleteError:
-            operation = "create"
+            operation = "Created"
         if password is None:
             password = getpass.getpass(f"Enter {password_alias}: ").strip()
         keyring.set_password(cls.SERVICE_NAME, username, password)

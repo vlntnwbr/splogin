@@ -76,7 +76,9 @@ class CommandLineInterface:
     def add_hass_command(self) -> None:
         """Add the parser for the 'hass' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
-            "hass", "create Home Assistant instance using python-keyring"
+            "hass",
+            "create Home Assistant instance using python-keyring",
+            "run 'splogin hass rm' to remove an existing instance"
         )
 
         sub_parser.add_argument(
@@ -175,10 +177,18 @@ class CommandLineInterface:
         )
         self._add_common_options(splogin_validate, sub_parser)
 
-    def _add_subcommand(self, name: str, help_message: str) -> ArgumentParser:
+    def _add_subcommand(
+            self,
+            name: str,
+            help_message: str,
+            epilog: str | None = None
+    ) -> ArgumentParser:
         """Create a parser used for a splogin subcommand."""
         return self.subcommands.add_parser(
-            name, description=help_message, help=help_message
+            name,
+            description=help_message,
+            help=help_message,
+            epilog=epilog
         )
 
     def _add_common_options(

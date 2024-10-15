@@ -10,11 +10,9 @@ import requests
 
 from . import CredentialManager, CredentialsException, get_logger, log_error
 
-# TODO delete existing instance
-
 
 class HomeAssistantApiException(BaseException):
-    """Raised when an error during Home Assistant API calls occurs."""
+    """Raised for errors during Home Assistant API calls."""
 
 
 class HomeAssistant(CredentialManager):
@@ -22,12 +20,14 @@ class HomeAssistant(CredentialManager):
 
     SERVICE_NAME = "splogin-hass"
 
-    def __init__(
-        self,
-        logger: Logger,
-    ) -> None:
+    def __init__(self, logger: Logger) -> None:
         """Create handler and ensure authenticated API availability."""
-        super().__init__(logger)
+        try:
+            super().__init__(logger)
+        except CredentialsException as exc:
+            raise CredentialsException(
+                "No Home Assistant Instance configured"
+            ) from exc
         self.api_url = self.credentials.username + "/api/"
         self.check_api_connection()
 
@@ -87,18 +87,18 @@ def main(args: Namespace) -> None:
     log = get_logger(HomeAssistant.SERVICE_NAME, args.log_level)
     log.debug(args)
     try:
-        log.info("Setting Home Assistant instance")
-        hass, operation = HomeAssistant.make(
-            log,
-            args.instance_url,
-            args.token,
-            "Token"
-        )
-        log.info(
-            "%sd Home Assistance instance '%s'",
-            operation.capitalize(),
-            hass
-        )
+        if args.instance_url == "rm":
+            hass = HomeAssistant(log)
+            hass.delete()
+            operation = "Deleted"
+        else:
+            hass, operation = HomeAssistant.make(
+                log,
+                args.instance_url,
+                args.token,
+                "Token"
+            )
+        log.info("%s Home Assistance instance '%s'", operation, hass)
     except (
         CredentialsException,
         HomeAssistantApiException,
