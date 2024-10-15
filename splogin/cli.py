@@ -86,12 +86,12 @@ class CommandLineInterface:
         )
 
         self._add_env_var_arg(
+            "HASS_TOKEN",
             "--token",
-            "Home Assistant API token. Use for non-interactive mode.",
-            env_var="HASS_TOKEN",
+            parser=sub_parser,
+            help="Home Assistant API token. Use for non-interactive mode.",
             default=None,
             metavar="TOKEN",
-            parser=sub_parser
         )
 
         self._add_common_options(splogin_hass, sub_parser)
@@ -103,36 +103,39 @@ class CommandLineInterface:
         )
 
         self._add_env_var_arg(
-            "--spotify-login-page",
-            "URL for the Spotify Login Page",
             "SPOTIFY_LOGIN_PAGE",
-            "https://accounts.spotify.com/de/login",
+            "--spotify-login-page",
+            parser=sub_parser,
+            help="URL for the Spotify Login Page",
+            default="https://accounts.spotify.com/de/login",
             metavar="URL",
-            parser=sub_parser
         )
 
         self._add_env_var_arg(
-            "--spotify-login-button",
-            "HTML element ID of login button on Spotify Login Page",
             "SPOTIFY_LOGIN_BUTTON",
-            "login-button",
-            parser=sub_parser
+            "--spotify-login-button",
+            parser=sub_parser,
+            help="HTML element ID of login button on Spotify Login Page",
+            default="login-button",
+            metavar="ELEMENT_ID",
         )
 
         self._add_env_var_arg(
-            "--spotify-password-field",
-            "HTML element ID of password field on Spotify Login Page",
             "SPOTIFY_PASSWORD_FIELD",
-            "login-password",
-            parser=sub_parser
+            "--spotify-password-field",
+            parser=sub_parser,
+            help="HTML element ID of password field on Spotify Login Page",
+            default="login-password",
+            metavar="ELEMENT_ID",
         )
 
         self._add_env_var_arg(
-            "--spotify-username-field",
-            "HTML element ID of username field on Spotify Login Page",
             "SPOTIFY_USERNAME_FIELD",
-            "login-username",
-            parser=sub_parser
+            "--spotify-username-field",
+            parser=sub_parser,
+            help="HTML element ID of username field on Spotify Login Page",
+            default="login-username",
+            metavar="ELEMENT_ID",
         )
 
         self._add_common_options(splogin_run, parser=sub_parser)
@@ -143,13 +146,14 @@ class CommandLineInterface:
             "user", "manage Spotify credentials using python-keyring"
         )
 
-        add_action = lambda flag, message: sub_parser.add_argument(
-            flag,
-            dest="username",
-            metavar="USER",
-            action=StoreMutuallyExclusiveFlags,
-            help=message + " Spotify Email or username"
-        )
+        def add_action(flag: str, message: str):
+            sub_parser.add_argument(
+                flag,
+                dest="username",
+                metavar="USER",
+                action=StoreMutuallyExclusiveFlags,
+                help=message + " Spotify Email or username"
+            )
 
         add_action("--get", "find credential for")
         add_action("--set", "set or update")
@@ -195,34 +199,27 @@ class CommandLineInterface:
         )
 
         self._add_env_var_arg(
-            flag="--log",
-            message="set the logging level, default: INFO",
-            env_var="LOG_LEVEL",
+            "LOG_LEVEL",
+            "--log",
+            parser=parser,
+            help="set the logging level, default: INFO",
             default="INFO",
             metavar="LEVEL",
-            parser=parser,
             dest="log_level",
             type=lambda val: val.upper()
         )
 
     def _add_env_var_arg(
         self,
-        flag: str,
-        message: str,
         env_var: str,
-        default: Any,
-        metavar: str = "ELEMENT_ID",
+        *name_or_flags: str,
         parser: ArgumentParser | None = None,
         **add_argument_args
     ) -> None:
         """Add an optional argument that can be set from environment."""
-        if parser is None:
-            parser = self.argument_parser
-
-        parser.add_argument(
-            flag,
-            help=message,
-            metavar=metavar,
+        default = add_argument_args.pop('default', None)
+        (self.argument_parser if parser is None else parser).add_argument(
+            *name_or_flags,
             default=os.getenv(self.env_var_prefix + env_var, default),
             **add_argument_args
         )
@@ -237,6 +234,7 @@ class CommandLineInterface:
             )
         except ValueError:
             pass
+        return None
 
     def load_env(self, env_file: Path) -> None:
         """Load environment variables from given file."""
@@ -246,10 +244,11 @@ class CommandLineInterface:
                 env_file.absolute().read_text().splitlines()
                 if line.strip() and not line.startswith("#")
             )
-        except:
+        except BaseException as exc:  # pylint: disable=broad-exception-caught
             self.argument_parser.error(
                 f"argument {self.env_file_flag}: "
-                f"error loading '{env_file}'"
+                f"error loading '{env_file}': "
+                f"{exc}"
             )
         expansion_pattern = r"(\${(.*?)})"  # matches ${ENV_VAR_TO_EXPAND}
 
