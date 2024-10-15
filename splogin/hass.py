@@ -1,7 +1,6 @@
 """Handler and entrypoint for Home Assistant API."""
 
 from argparse import Namespace
-from getpass import getpass
 from logging import Logger
 from typing import Any
 
@@ -9,7 +8,7 @@ import keyring
 import keyring.errors
 import requests
 
-from . import CredentialsException, get_logger, log_error
+from . import CredentialManager, CredentialsException, get_logger, log_error
 
 # TODO delete existing instance
 
@@ -18,7 +17,7 @@ class HomeAssistantApiException(BaseException):
     """Raised when an error during Home Assistant API calls occurs."""
 
 
-class HomeAssistant:
+class HomeAssistant(CredentialManager):
     """Wrapper for Home Assistant API interactions."""
 
     SERVICE_NAME = "splogin-hass"
@@ -28,45 +27,10 @@ class HomeAssistant:
         logger: Logger,
     ) -> None:
         """Create handler and ensure authenticated API availability."""
-        self.log = logger
-        self.log.debug("fetching Home Assistant instance")
-        credentials = keyring.get_credential(self.SERVICE_NAME, None)
-        if credentials is None:
-            raise CredentialsException("can't find Home Assistant instance")
-        self.log.debug("found instance %r", credentials)
-        self.instance_url = credentials.username
-        self.api_url = self.instance_url + "/api/"
-        self.token = credentials.password
-
+        super().__init__(logger)
+        self.api_url = self.credentials.username + "/api/"
         self.check_api_connection()
 
-    def __str__(self) -> str:
-        """Return the Home Assistant URL without trailing '/api/'."""
-        return self.instance_url
-
-    @classmethod
-    def make_instance(
-        cls,
-        log: Logger,
-        url: str,
-        token: str | None
-    ) -> tuple['HomeAssistant', str]:
-        """Create or Update the Home Assistant API instance."""
-        try:
-            operation = "update"
-            keyring.delete_password(cls.SERVICE_NAME, url)
-            log.debug("deleted existing Home Assistant instance %s", url)
-        except keyring.errors.PasswordDeleteError:
-            operation = "create"
-        token = getpass("Enter Token: ") if token is None else token
-        keyring.set_password(cls.SERVICE_NAME, url, token)
-        return cls(log), operation
-        
-    def delete_instance(self) -> str:
-        """Delete the existing instance from keyring and return URL."""
-        keyring.delete_password(self.SERVICE_NAME, self.instance_url)
-        return self.instance_url
-    
     def check_api_connection(self) -> bool:
         """Return True after successful Home Assistant API call."""
         try:
@@ -115,7 +79,7 @@ class HomeAssistant:
     @property
     def base_headers(self) -> dict[str, Any]:
         """Return headers dictionary with Authorization Header."""
-        return {"Authorization": "Bearer " + self.token}
+        return {"Authorization": "Bearer " + self.credentials.password}
 
 
 def main(args: Namespace) -> None:
@@ -124,14 +88,16 @@ def main(args: Namespace) -> None:
     log.debug(args)
     try:
         log.info("Setting Home Assistant instance")
-        hass, operation = HomeAssistant.make_instance(
+        hass, operation = HomeAssistant.make(
             log,
             args.instance_url,
-            args.token
+            args.token,
+            "Token"
         )
         log.info(
             "%sd Home Assistance instance '%s'",
-            hass.instance_url, operation.capitalize()
+            operation.capitalize(),
+            hass
         )
     except (
         CredentialsException,

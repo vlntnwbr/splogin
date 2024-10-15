@@ -5,6 +5,9 @@ from .credentials import CredentialManager
 from .hass import HomeAssistant, HomeAssistantApiException
 from .splogin import check_browser_launch
 
+# TODO method for playwright firefox installation
+# TODO add --init option that fixes every error
+
 
 def main(args):
     """Entrypoint for splogin subcommand 'validate'."""
@@ -26,6 +29,6 @@ def main(args):
 
     try:
         hass = HomeAssistant(log)
-        log.info("Using Home Assistant instance: %s", hass.instance_url)
+        log.info("Using Home Assistant instance: %s", hass)
     except (CredentialsException, HomeAssistantApiException) as exc:
         log.warning(exc)
