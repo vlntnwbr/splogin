@@ -1,3 +1,5 @@
+"""Application context for splogin."""
+
 import os
 import re
 import sys
@@ -7,7 +9,6 @@ from pathlib import Path
 from typing import Any, Sequence, Callable
 
 
-from . import get_logger
 from .credentials import main as splogin_user
 from .splogin import main as splogin_run
 from .hass import main as splogin_hass
@@ -27,7 +28,7 @@ class StoreMutuallyExclusiveFlags(Action):
         values: str | Sequence[Any] | None,
         option_string: str | None = None
     ) -> None:
-        
+        """Validate option exclusivity, store flag and given value."""
         if getattr(namespace, self.FLAG_VARIABLE) == self.DEFAULT_FLAG:
             parser.error("options --{get, set, del} are mutually exclusive")
         setattr(namespace, self.FLAG_VARIABLE, option_string[2:])
@@ -35,9 +36,10 @@ class StoreMutuallyExclusiveFlags(Action):
 
 
 class CommandLineInterface:
+    """Command Line Interface with env var loader for splogin."""
 
     def __init__(self):
-        
+        """Initialize cli. Load environment and run command handler."""
         # Create Argument Parser
         self.argument_parser = ArgumentParser(
             "splogin",
@@ -72,6 +74,7 @@ class CommandLineInterface:
             self.argument_parser.print_help()
 
     def add_hass_command(self) -> None:
+        """Add the parser for the 'hass' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
             "hass", "create Home Assistant instance using python-keyring"
         )
@@ -81,7 +84,7 @@ class CommandLineInterface:
             help="URL (with scheme & port) for Home Assistance instance",
             metavar="instance-url",
         )
-        
+
         self._add_env_var_arg(
             "--token",
             "Home Assistant API token. Use for non-interactive mode.",
@@ -94,7 +97,7 @@ class CommandLineInterface:
         self._add_common_options(splogin_hass, sub_parser)
 
     def add_run_command(self) -> None:
-
+        """Add the parser for the 'run' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
             "run", "perform Spotify login trigger Home Assistant event"
         )
@@ -123,7 +126,7 @@ class CommandLineInterface:
             "login-password",
             parser=sub_parser
         )
-        
+
         self._add_env_var_arg(
             "--spotify-username-field",
             "HTML element ID of username field on Spotify Login Page",
@@ -135,7 +138,7 @@ class CommandLineInterface:
         self._add_common_options(splogin_run, parser=sub_parser)
 
     def add_user_command(self) -> None:
-        
+        """Add the parser for the 'user' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
             "user", "manage Spotify credentials using python-keyring"
         )
@@ -147,7 +150,7 @@ class CommandLineInterface:
             action=StoreMutuallyExclusiveFlags,
             help=message + " Spotify Email or username"
         )
-        
+
         add_action("--get", "find credential for")
         add_action("--set", "set or update")
         add_action("--del", "delete")
@@ -160,25 +163,26 @@ class CommandLineInterface:
         )
 
         self._add_common_options(splogin_user, sub_parser)
-    
+
     def add_validate_command(self) -> None:
-        
+        """Add the parser for the 'validate' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
             "validate", "check if splogin is ready to run"
         )
         self._add_common_options(splogin_validate, sub_parser)
-        
+
     def _add_subcommand(self, name: str, help_message: str) -> ArgumentParser:
+        """Create a parser used for a splogin subcommand."""
         return self.subcommands.add_parser(
             name, description=help_message, help=help_message
         )
-    
+
     def _add_common_options(
         self,
         handler: Callable[[Namespace], None] | None = None,
         parser: ArgumentParser | None = None
     ) -> None:
-        
+        """Add common command options to the given or main parser."""
         if parser is None:
             parser = self.argument_parser
         parser.set_defaults(func=handler)
@@ -189,7 +193,7 @@ class CommandLineInterface:
             metavar="PATH",
             type=Path
         )
-        
+
         self._add_env_var_arg(
             flag="--log",
             message="set the logging level, default: INFO",
@@ -211,7 +215,7 @@ class CommandLineInterface:
         parser: ArgumentParser | None = None,
         **add_argument_args
     ) -> None:
-        
+        """Add an optional argument that can be set from environment."""
         if parser is None:
             parser = self.argument_parser
 
@@ -221,9 +225,10 @@ class CommandLineInterface:
             metavar=metavar,
             default=os.getenv(self.env_var_prefix + env_var, default),
             **add_argument_args
-    )
-    
-    def get_env_file(self) -> str | None:
+        )
+
+    def get_env_file(self) -> Path | None:
+        """Return the filepath for the --env-file argument."""
         try:
             return Path(sys.argv[sys.argv.index(self.env_file_flag) + 1])
         except IndexError:
@@ -235,7 +240,6 @@ class CommandLineInterface:
 
     def load_env(self, env_file: Path) -> None:
         """Load environment variables from given file."""
-
         try:
             lines = (
                 line.strip() for line in
@@ -248,11 +252,11 @@ class CommandLineInterface:
                 f"error loading '{env_file}'"
             )
         expansion_pattern = r"(\${(.*?)})"  # matches ${ENV_VAR_TO_EXPAND}
-        
+
         for line in lines:
             env_var, env_file_value = line.split("=", 1)
             must_expand_query = re.search(expansion_pattern, env_file_value)
-        
+
             env_var_value = re.sub(
                 expansion_pattern,
                 os.getenv(

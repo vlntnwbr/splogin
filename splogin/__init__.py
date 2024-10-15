@@ -1,11 +1,14 @@
+"""Main package for splogin with common utilities."""
+
 import logging
 
 
 class CredentialsException(BaseException):
-    pass
+    """Raised when credentials for a needed action are missing."""
 
 
 def get_logger(name: str, level: int | str) -> logging.Logger:
+    """Create a named, formatted logger for the given level."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
     formatter = logging.Formatter(
@@ -22,5 +25,6 @@ def log_error(
     exc: Exception,
     message: str | None = None,
 ) -> None:
+    """Error log the (exception) message. Debug log the traceback."""
     log.error(exc if message is None else message)
     log.debug(exc.__class__, exc_info=True)
