@@ -1,7 +1,13 @@
-from argparse import Action, ArgumentParser, Namespace
-from os import getenv
-from typing import Any, Sequence
+import os
+import re
+import sys
 
+from argparse import Action, ArgumentParser, Namespace
+from pathlib import Path
+from typing import Any, Sequence, Callable
+
+
+from . import get_logger
 from .credentials import main as splogin_user
 from .splogin import main as splogin_run
 from .hass import main as splogin_hass
@@ -32,60 +38,65 @@ class CommandLineInterface:
 
     def __init__(self):
         
+        # Create Argument Parser
         self.argument_parser = ArgumentParser(
             "splogin",
             description="Automated Spotify Web login and cookie extraction"
         )
 
+        # Load .env
+        self.env_var_prefix = "SPLOGIN_"
+        self.env_file_flag = "--env-file"
+        if (env_file := self.get_env_file()) is not None:
+            self.load_env(env_file)
+
+        # Initiate Subcommands
         self.subcommands = self.argument_parser.add_subparsers(
-            required=True
+            description="these commands support all options listed above",
         )
-        
         self.add_user_command()
         self.add_run_command()
         self.add_hass_command()
         self.add_validate_command()
-        self._add_common_options(lambda: ())
+        self._add_common_options()
 
-        self.args = self.argument_parser.parse_args()
-        self.args.func(self.args)
+        # Determine Command Handler and run it
+        args = self.argument_parser.parse_args()
+        run_command_handler: Callable[[Namespace], None] | None = getattr(
+            args, "func", None
+        )
+        if run_command_handler is not None:
+            delattr(args, "func")
+            run_command_handler(args)
+        else:
+            self.argument_parser.print_help()
 
     def add_hass_command(self) -> None:
         sub_parser = self._add_subcommand(
-            "hass", "Manage Home Assistant instance using python-keyring"
+            "hass", "create Home Assistant instance using python-keyring"
         )
 
-        self._add_env_var_arg(
-            flag="instance_url",
-            message="URL (with scheme & port) for Home Assistance instance",
-            env_var="HASS_INSTANCE_URL",
-            default="https://hass.vweber.eu",
+        sub_parser.add_argument(
+            "instance_url",
+            help="URL (with scheme & port) for Home Assistance instance",
             metavar="instance-url",
-            parser=sub_parser,
         )
-
+        
         self._add_env_var_arg(
-            flag="--token",
-            message="Bearer Token for Home Assistant API authentication",
+            "--token",
+            "Home Assistant API token. Use for non-interactive mode.",
             env_var="HASS_TOKEN",
             default=None,
             metavar="TOKEN",
             parser=sub_parser
         )
-        
-        # sub_parser.add_argument(
-        #     "--token",
-        #     help="Token for Home Assistant API authentication"
-        # )
 
         self._add_common_options(splogin_hass, sub_parser)
-
-        # TODO add argument also to validate command)
 
     def add_run_command(self) -> None:
 
         sub_parser = self._add_subcommand(
-            "run", "Perform Spotify login trigger Home Assistant event"
+            "run", "perform Spotify login trigger Home Assistant event"
         )
 
         self._add_env_var_arg(
@@ -126,7 +137,7 @@ class CommandLineInterface:
     def add_user_command(self) -> None:
         
         sub_parser = self._add_subcommand(
-            "user", "Manage Spotify credentials using python-keyring"
+            "user", "manage Spotify credentials using python-keyring"
         )
 
         add_action = lambda flag, message: sub_parser.add_argument(
@@ -137,15 +148,15 @@ class CommandLineInterface:
             help=message + " Spotify Email or username"
         )
         
-        add_action("--get", "Find credential for")
-        add_action("--set", "Set or update")
-        add_action("--del", "Delete")
+        add_action("--get", "find credential for")
+        add_action("--set", "set or update")
+        add_action("--del", "delete")
         sub_parser.set_defaults(action="DEFAULT_ACTION")
 
         sub_parser.add_argument(
             "--password",
             metavar="PASSWORD",
-            help="Password for set option. Use for non-interactive mode.",
+            help="password for set option. Use for non-interactive mode.",
         )
 
         self._add_common_options(splogin_user, sub_parser)
@@ -153,7 +164,7 @@ class CommandLineInterface:
     def add_validate_command(self) -> None:
         
         sub_parser = self._add_subcommand(
-            "validate", "Check if splogin is ready to run"
+            "validate", "check if splogin is ready to run"
         )
         self._add_common_options(splogin_validate, sub_parser)
         
@@ -164,7 +175,7 @@ class CommandLineInterface:
     
     def _add_common_options(
         self,
-        handler: callable,
+        handler: Callable[[Namespace], None] | None = None,
         parser: ArgumentParser | None = None
     ) -> None:
         
@@ -172,12 +183,19 @@ class CommandLineInterface:
             parser = self.argument_parser
         parser.set_defaults(func=handler)
 
+        parser.add_argument(
+            self.env_file_flag,
+            help="filepath pointing to an env file. Default: .env",
+            metavar="PATH",
+            type=Path
+        )
+        
         self._add_env_var_arg(
             flag="--log",
-            message="Set the logging level, default: INFO",
+            message="set the logging level, default: INFO",
             env_var="LOG_LEVEL",
             default="INFO",
-            metavar="level",
+            metavar="LEVEL",
             parser=parser,
             dest="log_level",
             type=lambda val: val.upper()
@@ -201,9 +219,50 @@ class CommandLineInterface:
             flag,
             help=message,
             metavar=metavar,
-            default=getenv("SPLOGIN_" + env_var, default),
+            default=os.getenv(self.env_var_prefix + env_var, default),
             **add_argument_args
     )
+    
+    def get_env_file(self) -> str | None:
+        try:
+            return Path(sys.argv[sys.argv.index(self.env_file_flag) + 1])
+        except IndexError:
+            self.argument_parser.error(
+                f"argument {self.env_file_flag}: expected one argument"
+            )
+        except ValueError:
+            pass
+
+    def load_env(self, env_file: Path) -> None:
+        """Load environment variables from given file."""
+
+        try:
+            lines = (
+                line.strip() for line in
+                env_file.absolute().read_text().splitlines()
+                if line.strip() and not line.startswith("#")
+            )
+        except:
+            self.argument_parser.error(
+                f"argument {self.env_file_flag}: "
+                f"error loading '{env_file}'"
+            )
+        expansion_pattern = r"(\${(.*?)})"  # matches ${ENV_VAR_TO_EXPAND}
+        
+        for line in lines:
+            env_var, env_file_value = line.split("=", 1)
+            must_expand_query = re.search(expansion_pattern, env_file_value)
+        
+            env_var_value = re.sub(
+                expansion_pattern,
+                os.getenv(
+                    must_expand_query.group(2),  # == 'ENV_VAR_TO_EXPAND'
+                    must_expand_query.group(1)  # == '${ENV_VAR_TO_EXPAND}'
+                ),
+                must_expand_query.string
+            ) if must_expand_query is not None else env_file_value
+
+            os.environ[env_var.strip()] = env_var_value.strip()
 
 
 if __name__ == "__main__":
