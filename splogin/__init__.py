@@ -1,5 +1,6 @@
 """Main package for splogin with common utilities."""
 
+import dataclasses
 import getpass
 import logging
 
@@ -7,6 +8,8 @@ import keyring
 
 from keyring.errors import PasswordDeleteError
 
+# TODO refactor hass.py to home_assistant
+# TODO refactor hass api action to error
 # TODO make new SpotifyLogin class from CredentialManager
 #   - add method for performing spotify login
 #   - this will be the new user command
@@ -14,8 +17,20 @@ from keyring.errors import PasswordDeleteError
 #   - all custom exception messages must be pretty to read for logging
 
 
-class CredentialsException(BaseException):  # TODO Refactor to Credential
+class BrowserUnavailableError(BaseException):
+    """Raised when an error occurs during playwright browser launch."""
+
+
+class CredentialsException(BaseException):  # TODO Refactor to CredentialError
     """Raised when credentials for a needed action are missing."""
+
+
+@dataclasses.dataclass(frozen=True, repr=True)
+class SpotifyAuthCookie:
+    """Container for the Spotify Session cookie values."""
+
+    sp_dc: str
+    sp_key: str
 
 
 class CredentialManager:
