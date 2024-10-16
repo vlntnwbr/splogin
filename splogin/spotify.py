@@ -7,10 +7,8 @@ from playwright.sync_api import sync_playwright
 
 from . import (
     BrowserUnavailableError,
-    CredentialsException,
+    CredentialsError,
     CredentialManager,
-    get_logger,
-    log_error,
     SpotifyAuthCookie
 )
 
@@ -23,6 +21,10 @@ class SpotifyWebLogin(CredentialManager):
     """Handler for automated Spotify Web login and cookie extraction."""
 
     SERVICE_NAME = "splogin-user"
+    SERVICE_ALIAS = "Spotify"
+    SECRET_ALIAS = "credentials"  # nosec
+    SECRET_TYPE = "password"  # nosec
+    USER_ALIAS = "user"
 
     def __init__(
             self,
@@ -30,11 +32,10 @@ class SpotifyWebLogin(CredentialManager):
             sp_login_conf: Namespace | None = None
     ) -> None:
         """Ensure credential and browser availability for handler."""
-
         try:
             super().__init__(logger)
-        except CredentialsException as exc:
-            raise CredentialsException("No Spotify Credentials found") from exc
+        except CredentialsError as exc:
+            raise CredentialsError("No Spotify Credentials found") from exc
 
         if sp_login_conf is None:
             return  # only manage credentials without a given login_conf
@@ -84,7 +85,9 @@ class SpotifyWebLogin(CredentialManager):
                 sp_key = next(c for c in cookies if c["name"] == "sp_key")
                 return SpotifyAuthCookie(sp_dc, sp_key)
         except Exception as exc:
-            raise SpotifyLoginError("cannot extract cookies") from exc
+            raise SpotifyLoginError(
+                f"Unable to log into spotify as {self}"
+            ) from exc
 
     def _validate_config(self) -> None:
         """Raise AttributeError for a missing config value."""
@@ -102,11 +105,5 @@ class SpotifyWebLogin(CredentialManager):
                 return True
             except Exception as exc:  # pylint: disable=broad-exception-caught
                 raise BrowserUnavailableError(
-                    "playwright cannot launch browser"
+                    "Error during playwright browser launch"
                 ) from exc
-
-
-def main(args: Namespace) -> None:
-    """Entrypoint for the splogin subcommand 'sp'."""
-    log = get_logger(SpotifyWebLogin.SERVICE_NAME, args.log_level)
-    log.debug(args)

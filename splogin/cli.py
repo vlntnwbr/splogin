@@ -4,14 +4,13 @@ import os
 import re
 import sys
 
-from argparse import Action, ArgumentParser, Namespace
+from argparse import Action, ArgumentParser, Namespace, RawTextHelpFormatter
 from pathlib import Path
 from typing import Any, Sequence, Callable
 
-
-from .credentials import main as splogin_user
-from .splogin import main as splogin_run
-from .hass import main as splogin_hass
+from . import CredentialManager
+from .spotify import SpotifyWebLogin
+from .home_assistant import HomeAssistant
 from .validate import main as splogin_validate
 
 
@@ -43,7 +42,8 @@ class CommandLineInterface:
         # Create Argument Parser
         self.argument_parser = ArgumentParser(
             "splogin",
-            description="Automated Spotify Web login and cookie extraction"
+            description="Automated Spotify Web login and cookie extraction",
+            formatter_class=RawTextHelpFormatter
         )
 
         # Load .env
@@ -56,9 +56,17 @@ class CommandLineInterface:
         self.subcommands = self.argument_parser.add_subparsers(
             description="these commands support all options listed above",
         )
-        self.add_user_command()
-        self.add_run_command()
-        self.add_hass_command()
+
+        self.add_credential_command(
+            command="sp",
+            handler=SpotifyWebLogin,
+            username_help="Spotify Email or username"
+        )
+        self.add_credential_command(
+            "hass",
+            handler=HomeAssistant,
+            username_help="Complete URL for Home Assistant instance."
+        )
         self.add_validate_command()
         self._add_common_options()
 
@@ -73,102 +81,94 @@ class CommandLineInterface:
         else:
             self.argument_parser.print_help()
 
-    def add_hass_command(self) -> None:
-        """Add the parser for the 'hass' subcommand to the CLI."""
-        sub_parser = self._add_subcommand(
-            "hass",
-            "create Home Assistant instance using python-keyring",
-            "run 'splogin hass rm' to remove an existing instance"
-        )
-
-        sub_parser.add_argument(
-            "instance_url",
-            help="URL (with scheme & port) for Home Assistance instance",
-            metavar="instance-url",
-        )
-
-        self._add_env_var_arg(
-            "HASS_TOKEN",
-            "--token",
-            parser=sub_parser,
-            help="Home Assistant API token. Use for non-interactive mode.",
-            default=None,
-            metavar="TOKEN",
-        )
-
-        self._add_common_options(splogin_hass, sub_parser)
-
-    def add_run_command(self) -> None:
-        """Add the parser for the 'run' subcommand to the CLI."""
-        sub_parser = self._add_subcommand(
-            "run", "perform Spotify login trigger Home Assistant event"
-        )
-
-        self._add_env_var_arg(
-            "SPOTIFY_LOGIN_PAGE",
-            "--spotify-login-page",
-            parser=sub_parser,
-            help="URL for the Spotify Login Page",
-            default="https://accounts.spotify.com/de/login",
-            metavar="URL",
-        )
-
-        self._add_env_var_arg(
-            "SPOTIFY_LOGIN_BUTTON",
-            "--spotify-login-button",
-            parser=sub_parser,
-            help="HTML element ID of login button on Spotify Login Page",
-            default="login-button",
-            metavar="ELEMENT_ID",
-        )
-
-        self._add_env_var_arg(
-            "SPOTIFY_PASSWORD_FIELD",
-            "--spotify-password-field",
-            parser=sub_parser,
-            help="HTML element ID of password field on Spotify Login Page",
-            default="login-password",
-            metavar="ELEMENT_ID",
-        )
-
-        self._add_env_var_arg(
-            "SPOTIFY_USERNAME_FIELD",
-            "--spotify-username-field",
-            parser=sub_parser,
-            help="HTML element ID of username field on Spotify Login Page",
-            default="login-username",
-            metavar="ELEMENT_ID",
-        )
-
-        self._add_common_options(splogin_run, parser=sub_parser)
-
-    def add_user_command(self) -> None:
-        """Add the parser for the 'user' subcommand to the CLI."""
-        sub_parser = self._add_subcommand(
-            "user", "manage Spotify credentials using python-keyring"
-        )
-
-        def add_action(flag: str, message: str):
-            sub_parser.add_argument(
-                flag,
-                dest="username",
-                metavar="USER",
-                action=StoreMutuallyExclusiveFlags,
-                help=message + " Spotify Email or username"
+    def get_env_file(self) -> Path | None:
+        """Return the filepath for the --env-file argument."""
+        try:
+            return Path(sys.argv[sys.argv.index(self.env_file_flag) + 1])
+        except IndexError:
+            self.argument_parser.error(
+                f"argument {self.env_file_flag}: expected one argument"
             )
+        except ValueError:
+            pass
+        return None
 
-        add_action("--get", "find credential for")
-        add_action("--set", "set or update")
-        add_action("--del", "delete")
-        sub_parser.set_defaults(action="DEFAULT_ACTION")
+    def load_env(self, env_file: Path) -> None:
+        """Load environment variables from given file."""
+        try:
+            lines = (
+                line.strip() for line in
+                env_file.absolute().read_text().splitlines()
+                if line.strip() and not line.startswith("#")
+            )
+        except BaseException as exc:  # pylint: disable=broad-exception-caught
+            self.argument_parser.error(
+                f"argument {self.env_file_flag}: "
+                f"error loading '{env_file}': "
+                f"{exc}"
+            )
+        expansion_pattern = r"(\${(.*?)})"  # matches ${ENV_VAR_TO_EXPAND}
 
-        sub_parser.add_argument(
-            "--password",
-            metavar="PASSWORD",
-            help="password for set option. Use for non-interactive mode.",
+        for line in lines:
+            env_var, env_file_value = line.split("=", 1)
+            must_expand_query = re.search(expansion_pattern, env_file_value)
+
+            env_var_value = re.sub(
+                expansion_pattern,
+                os.getenv(
+                    must_expand_query.group(2),  # == 'ENV_VAR_TO_EXPAND'
+                    must_expand_query.group(1)  # == '${ENV_VAR_TO_EXPAND}'
+                ),
+                must_expand_query.string
+            ) if must_expand_query is not None else env_file_value
+
+            os.environ[env_var.strip()] = env_var_value.strip()
+
+    def add_credential_command(
+        self,
+        command: str,
+        handler: CredentialManager,
+        username_help: str,
+    ):
+        """Add a subcommand parser for managing credentials."""
+        # alias 0 | Spotify     | Home Assistant
+        # alias 1 | credentials | instance
+        # alias 2 | password    | token
+
+        env_var_flag = f"--{handler.SECRET_TYPE}"
+        env_var = (
+            f"{handler.SERVICE_ALIAS.upper()}_{handler.SECRET_TYPE.upper()}"
+        )
+        sub_parser = self._add_subcommand(
+            command,
+            f"manage {handler.SERVICE_ALIAS} {handler.SECRET_ALIAS}",
+            epilog=(
+                f"'splogin {command} rm' "
+                "removes existing {handler.SECRET_ALIAS}\n"
+                f"{env_var_flag} can also be set via "
+                "${" + self.env_var_prefix + env_var + "}"
+            )
         )
 
-        self._add_common_options(splogin_user, sub_parser)
+        sub_parser.add_argument(
+            handler.USER_ALIAS,
+            help=username_help,
+        )
+
+        self._add_env_var_arg(
+            env_var,
+            env_var_flag,
+            parser=sub_parser,
+            dest="password",
+            default=None,
+            metavar=f"<{handler.SECRET_TYPE.lower()}>",
+            help=(
+                f"{handler.SERVICE_ALIAS} {handler.SECRET_TYPE}. "
+                "Use for non-interactive mode."
+            )
+        )
+
+        self._add_common_options(handler.cli, sub_parser)
 
     def add_validate_command(self) -> None:
         """Add the parser for the 'validate' subcommand to the CLI."""
@@ -188,7 +188,8 @@ class CommandLineInterface:
             name,
             description=help_message,
             help=help_message,
-            epilog=epilog
+            epilog=epilog,
+            formatter_class=RawTextHelpFormatter
         )
 
     def _add_common_options(
@@ -233,49 +234,6 @@ class CommandLineInterface:
             default=os.getenv(self.env_var_prefix + env_var, default),
             **add_argument_args
         )
-
-    def get_env_file(self) -> Path | None:
-        """Return the filepath for the --env-file argument."""
-        try:
-            return Path(sys.argv[sys.argv.index(self.env_file_flag) + 1])
-        except IndexError:
-            self.argument_parser.error(
-                f"argument {self.env_file_flag}: expected one argument"
-            )
-        except ValueError:
-            pass
-        return None
-
-    def load_env(self, env_file: Path) -> None:
-        """Load environment variables from given file."""
-        try:
-            lines = (
-                line.strip() for line in
-                env_file.absolute().read_text().splitlines()
-                if line.strip() and not line.startswith("#")
-            )
-        except BaseException as exc:  # pylint: disable=broad-exception-caught
-            self.argument_parser.error(
-                f"argument {self.env_file_flag}: "
-                f"error loading '{env_file}': "
-                f"{exc}"
-            )
-        expansion_pattern = r"(\${(.*?)})"  # matches ${ENV_VAR_TO_EXPAND}
-
-        for line in lines:
-            env_var, env_file_value = line.split("=", 1)
-            must_expand_query = re.search(expansion_pattern, env_file_value)
-
-            env_var_value = re.sub(
-                expansion_pattern,
-                os.getenv(
-                    must_expand_query.group(2),  # == 'ENV_VAR_TO_EXPAND'
-                    must_expand_query.group(1)  # == '${ENV_VAR_TO_EXPAND}'
-                ),
-                must_expand_query.string
-            ) if must_expand_query is not None else env_file_value
-
-            os.environ[env_var.strip()] = env_var_value.strip()
 
 
 if __name__ == "__main__":

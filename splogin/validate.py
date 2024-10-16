@@ -1,11 +1,8 @@
 """Handler and entrypoint for splogin validation and initialization."""
 
-from . import BrowserUnavailableError, CredentialsException, get_logger
-from .hass import HomeAssistant, HomeAssistantApiException
+from . import BrowserUnavailableError, CredentialsError, get_logger
+from .home_assistant import HomeAssistant, HomeAssistantApiError
 from .spotify import SpotifyWebLogin
-
-# TODO method for playwright firefox installation
-# TODO add --init option that fixes every error
 
 
 def main(args):
@@ -18,7 +15,7 @@ def main(args):
         log.info("Checking Spotify Web login availability")
         spotify_login = SpotifyWebLogin(log)
         log.info("Using Spotify User: %s", spotify_login)
-    except CredentialsException:
+    except CredentialsError:
         log.warning("Spotify User Not Set")
     try:
         SpotifyWebLogin.validate_browser_availability()
@@ -29,5 +26,5 @@ def main(args):
     try:
         hass = HomeAssistant(log)
         log.info("Using Home Assistant instance: %s", hass)
-    except (CredentialsException, HomeAssistantApiException) as exc:
+    except (CredentialsError, HomeAssistantApiError) as exc:
         log.warning(exc)

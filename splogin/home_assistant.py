@@ -1,31 +1,32 @@
 """Handler and entrypoint for Home Assistant API."""
 
-from argparse import Namespace
 from logging import Logger
 from typing import Any
 
-import keyring
-import keyring.errors
 import requests
 
-from . import CredentialManager, CredentialsException, get_logger, log_error
-
-
-class HomeAssistantApiException(BaseException):
-    """Raised for errors during Home Assistant API calls."""
+from . import (
+    CredentialManager,
+    CredentialsError,
+    HomeAssistantApiError
+)
 
 
 class HomeAssistant(CredentialManager):
     """Wrapper for Home Assistant API interactions."""
 
     SERVICE_NAME = "splogin-hass"
+    SERVICE_ALIAS = "Home Assistant"
+    SECRET_ALIAS = "instance"  # nosec
+    SECRET_TYPE = "token"  # nosec
+    USER_ALIAS = "instance_url"
 
     def __init__(self, logger: Logger) -> None:
         """Create handler and ensure authenticated API availability."""
         try:
             super().__init__(logger)
-        except CredentialsException as exc:
-            raise CredentialsException(
+        except CredentialsError as exc:
+            raise CredentialsError(
                 "No Home Assistant Instance configured"
             ) from exc
         self.api_url = self.credentials.username + "/api/"
@@ -47,11 +48,13 @@ class HomeAssistant(CredentialManager):
             )
             response.raise_for_status()
         except requests.ConnectionError as exc:
-            raise HomeAssistantApiException(
+            raise HomeAssistantApiError(
                 f"Home Assistant '{self.api_url}' is unreachable"
             ) from exc
         except requests.RequestException as exc:
-            raise HomeAssistantApiException(exc) from exc
+            raise HomeAssistantApiError(
+                f"Home Assistant API returned {response.status_code}"
+            ) from exc
 
     def trigger_event(self, event: str, payload: dict[str, Any]):
         """Trigger a Home Assistant event with a json payload."""
@@ -74,34 +77,12 @@ class HomeAssistant(CredentialManager):
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise HomeAssistantApiException("unable to trigger event") from exc
+            raise HomeAssistantApiError(
+                f"Home Assistant returned {response.status_code}"
+                f"when triggering {event}"
+            ) from exc
 
     @property
     def base_headers(self) -> dict[str, Any]:
         """Return headers dictionary with Authorization Header."""
         return {"Authorization": "Bearer " + self.credentials.password}
-
-
-def main(args: Namespace) -> None:
-    """Entrypoint for the splogin subcommand 'hass'."""
-    log = get_logger(HomeAssistant.SERVICE_NAME, args.log_level)
-    log.debug(args)
-    try:
-        if args.instance_url == "rm":
-            hass = HomeAssistant(log)
-            hass.delete()
-            operation = "Deleted"
-        else:
-            hass, operation = HomeAssistant.make(
-                log,
-                args.instance_url,
-                args.token,
-                "Token"
-            )
-        log.info("%s Home Assistance instance '%s'", operation, hass)
-    except (
-        CredentialsException,
-        HomeAssistantApiException,
-        keyring.errors.KeyringError
-    ) as exc:
-        log_error(log, exc)
