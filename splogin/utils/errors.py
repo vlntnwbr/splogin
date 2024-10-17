@@ -17,7 +17,7 @@ class BrowserUnavailableError(SPLoginException):
     """Raised when an error occurs during playwright browser launch."""
 
 
-class CredentialsError(SPLoginException):
+class CredentialError(SPLoginException):
     """Raised when credentials for a needed action are missing."""
 
 

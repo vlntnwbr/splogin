@@ -7,7 +7,7 @@ import requests
 
 from .utils.errors import HomeAssistantApiError
 
-from .utils.errors import CredentialsError
+from .utils.errors import CredentialError
 
 from .utils.credentials import (
     CredentialManager
@@ -27,8 +27,8 @@ class HomeAssistant(CredentialManager):
         """Create handler and ensure authenticated API availability."""
         try:
             super().__init__(logger)
-        except CredentialsError as exc:
-            raise CredentialsError(
+        except CredentialError as exc:
+            raise CredentialError(
                 "No Home Assistant Instance configured"
             ) from exc
         self.api_url = self.credentials.username + "/api/"

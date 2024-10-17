@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 from splogin.utils.errors import SpotifyLoginError
 
-from .utils.errors import BrowserUnavailableError, CredentialsError
+from .utils.errors import BrowserUnavailableError, CredentialError
 
 from .utils.credentials import CredentialManager
 
@@ -64,8 +64,8 @@ class SpotifyWebLogin(CredentialManager):
         """Ensure credential and browser availability for handler."""
         try:
             super().__init__(logger)
-        except CredentialsError as exc:
-            raise CredentialsError("No Spotify Credentials found") from exc
+        except CredentialError as exc:
+            raise CredentialError("No Spotify Credentials found") from exc
 
         if sp_login_conf is None:
             return  # only manage credentials without a given login_conf

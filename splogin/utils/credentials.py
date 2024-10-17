@@ -8,7 +8,7 @@ import keyring
 from keyring.errors import KeyringError, PasswordDeleteError
 
 from . import get_logger, log_error
-from .errors import CredentialsError, SPLoginException
+from .errors import CredentialError, SPLoginException
 
 
 class CredentialManager:
@@ -29,9 +29,9 @@ class CredentialManager:
         self.log = logger
         credentials = keyring.get_credential(self.SERVICE_NAME, None)
         if credentials is None:
-            raise CredentialsError(f"{self.SERVICE_NAME}: no credentials")
+            raise CredentialError(f"{self.SERVICE_NAME}: no credentials")
         if credentials.password is None:
-            raise CredentialsError(
+            raise CredentialError(
                 f"{self.SERVICE_NAME}: no password for {credentials.username}"
             )
         self.credentials = credentials

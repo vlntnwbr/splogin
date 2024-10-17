@@ -6,7 +6,7 @@ from .home_assistant import HomeAssistant
 from .spotify import SpotifyWebLogin
 from .utils.errors import (
     BrowserUnavailableError,
-    CredentialsError,
+    CredentialError,
     HomeAssistantApiError
 )
 
@@ -19,12 +19,9 @@ def run(args: Namespace) -> None:
     log.debug(args)
 
 
-# TODO method for playwright firefox installation
-# TODO add --init option that fixes every error
-
-
 def validate(args):
     """Entrypoint for subcommand 'splogin validate'."""
+    # TODO add --init option that fixes every error
     service_name = "splogin-validate"
     log = get_logger(service_name, args.log_level)
     log.debug(args)
@@ -33,7 +30,7 @@ def validate(args):
         log.info("Checking Spotify Web login availability")
         spotify_login = SpotifyWebLogin(log)
         log.info("Using Spotify User: %s", spotify_login)
-    except CredentialsError:
+    except CredentialError:
         log.warning("Spotify User Not Set")
     try:
         SpotifyWebLogin.validate_browser_availability()
@@ -44,5 +41,5 @@ def validate(args):
     try:
         hass = HomeAssistant(log)
         log.info("Using Home Assistant instance: %s", hass)
-    except (CredentialsError, HomeAssistantApiError) as exc:
+    except (CredentialError, HomeAssistantApiError) as exc:
         log.warning(exc)
