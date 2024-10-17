@@ -14,7 +14,6 @@ from .utils.errors import BrowserUnavailableError, CredentialError
 from .utils.credentials import CredentialManager
 
 CookieValue = TypeVar("CookieValue", bool, float, str)
-Cookie = TypeVar("Cookie", dict[str, CookieValue])
 
 
 @dataclass(frozen=True, repr=True, )
@@ -31,7 +30,7 @@ class SpotifyAuthCookie:
             yield cookie.name
 
     @classmethod
-    def from_playwright_cookies(cls, cookies: list[Cookie]):
+    def from_playwright_cookies(cls, cookies: list[dict[str, CookieValue]]):
         """Extract values from playwright Spotify Login cookies."""
         return cls(**{
             cookie_name: cls.get_cookie_value_by_name(cookie_name, cookies)
@@ -41,7 +40,7 @@ class SpotifyAuthCookie:
     @staticmethod
     def get_cookie_value_by_name(
         name: str,
-        cookies: list[Cookie]
+        cookies: list[dict[str, CookieValue]]
     ) -> CookieValue:
         """Return value for the cookie with the given name"""
         return next(c["value"] for c in cookies if c["name"] == name)

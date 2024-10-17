@@ -37,17 +37,18 @@ class CommandLineInterface:
             description="these commands support all options listed above",
         )
 
-        self.add_credential_command(
-            command="sp",
-            handler=SpotifyWebLogin,
-            username_help="Spotify Email or username"
-        )
+        self.add_init_command()
+        self.add_validate_command()
         self.add_credential_command(
             "hass",
             handler=HomeAssistant,
             username_help="Complete URL for Home Assistant instance."
         )
-        self.add_validate_command()
+        self.add_credential_command(
+            command="sp",
+            handler=SpotifyWebLogin,
+            username_help="Spotify Email or username"
+        )
         self._add_common_options()
 
         # Determine Command Handler and run it
@@ -152,21 +153,45 @@ class CommandLineInterface:
         sub_parser = self._add_subcommand(
             "validate", "check if splogin is ready to run"
         )
+        sub_parser.add_argument(
+            "--fix",
+            action="store_true",
+            help="set this to be prompted to fix every validation warning"
+        )
         self._add_common_options(splogin_validate, sub_parser)
+
+    def add_init_command(self) -> None:
+        """Add a command as an alias for 'validate --fix'."""
+        def init_handler(args: Namespace) -> Callable[[Namespace], None]:
+            """Set fix option in args and return validate handler."""
+            setattr(args, "fix", True)
+            setattr(args, "service_name", "splogin-init")
+            return splogin_validate(args)
+
+        sub_parser = self._add_subcommand(
+            "init", "interactively add missing dependencies",
+            "behaves identically to 'splogin validate --fix'"
+        )
+        self._add_common_options(init_handler, sub_parser)
 
     def _add_subcommand(
             self,
             name: str,
             help_message: str,
-            epilog: str | None = None
+            epilog: str = ""
     ) -> ArgumentParser:
         """Create a parser used for a splogin subcommand."""
         return self.subcommands.add_parser(
             name,
             description=help_message,
             help=help_message,
-            epilog=epilog,
-            formatter_class=RawTextHelpFormatter
+            formatter_class=RawTextHelpFormatter,
+            epilog=(
+                "--log can also be set via "
+                "${" + self.env_var_prefix + "LOG_LEVEL}\n"
+
+                f"{epilog}"
+            )
         )
 
     def _add_common_options(

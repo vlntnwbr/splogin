@@ -1,7 +1,6 @@
 """Package for utilities used by splogin."""
 
 import logging
-import pathlib
 import subprocess
 import sys
 
@@ -33,16 +32,11 @@ def log_error(
 
 def playwright_install(browser: str = "firefox") -> None:
     """Install browser using playwright cli in the python directory."""
-    playwright_bin = pathlib.Path(sys.executable).parent / "playwright"
-    if isinstance(playwright_bin, pathlib.WindowsPath):
-        playwright_bin = playwright_bin.with_suffix(".exe")
-    if not playwright_bin.is_file():
-        raise BrowserUnavailableError(
-            "Failed to locate binary for playwright cli",
-            playwright_bin
-        )
     try:
-        subprocess.run((playwright_bin, "install", browser), check=True)
+        subprocess.run(
+            (sys.executable, "-m", "playwright", "install", browser),
+            check=True
+        )
     except subprocess.CalledProcessError as exc:
         raise BrowserUnavailableError(
             "Failed to install browser for playwright"

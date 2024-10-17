@@ -60,7 +60,9 @@ class CredentialManager:
         except PasswordDeleteError:
             operation = "Created"
         if password is None:
-            password = getpass.getpass(f"Enter {cls.SECRET_ALIAS}: ").strip()
+            password = getpass.getpass(
+                f"Enter {cls.SECRET_TYPE.capitalize()}: "
+            ).strip()
         keyring.set_password(cls.SERVICE_NAME, username, password)
         return cls(log), operation
 
@@ -70,18 +72,22 @@ class CredentialManager:
         log = get_logger(cls.SERVICE_NAME, args.log_level)
         log.debug(args)
         try:
-            username = getattr(args, cls.USER_ALIAS.replace("-", "_"))
+            username = getattr(args, cls.get_username_arg_name())
             if username == "rm":
                 credentials = cls(log)
                 credentials.delete()
                 operation = "Deleted"
             else:
-                credentials, operation = cls.make(log, username, args.password)
+                credentials, operation = cls.make(
+                    log,
+                    username,
+                    getattr(args, "password", None)
+                )
             log.info(
                 "%s %s %s '%s'",
                 operation,
                 credentials.SERVICE_ALIAS,
-                credentials.SERVICE_ALIAS.capitalize(),
+                credentials.SECRET_ALIAS,
                 credentials
             )
         except (
@@ -91,11 +97,16 @@ class CredentialManager:
             log_error(log, exc)
 
     @classmethod
-    def get_username_input(cls, prompt: str | None) -> str:
+    def get_username_input(cls, prompt: str | None = None) -> str:
         """Prompt for user input and return stripped text."""
         return input("Enter {}: ".format(
             prompt if prompt is not None else cls.SECRET_ALIAS.capitalize()
         )).strip()
+
+    @classmethod
+    def get_username_arg_name(cls) -> str:
+        """Replace '-' with '_' for accessing username arg in cli ."""
+        return cls.USER_ALIAS.replace("-", "_")
 
     @classmethod
     def _raise_for_missing_service_name(cls) -> None:
