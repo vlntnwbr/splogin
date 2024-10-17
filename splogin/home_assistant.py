@@ -1,19 +1,21 @@
-"""Handler and entrypoint for Home Assistant API."""
+"""Handler for Home Assistant API based on CredentialManager."""
 
 from logging import Logger
 from typing import Any
 
 import requests
 
-from . import (
-    CredentialManager,
-    CredentialsError,
-    HomeAssistantApiError
+from .utils.errors import HomeAssistantApiError
+
+from .utils.errors import CredentialsError
+
+from .utils.credentials import (
+    CredentialManager
 )
 
 
 class HomeAssistant(CredentialManager):
-    """Wrapper for Home Assistant API interactions."""
+    """Wrapper for authenticated Home Assistant API interactions."""
 
     SERVICE_NAME = "splogin-hass"
     SERVICE_ALIAS = "Home Assistant"

@@ -4,34 +4,14 @@ import os
 import re
 import sys
 
-from argparse import Action, ArgumentParser, Namespace, RawTextHelpFormatter
+from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from pathlib import Path
-from typing import Any, Sequence, Callable
+from typing import Callable
 
-from . import CredentialManager
+from .utils.credentials import CredentialManager
 from .spotify import SpotifyWebLogin
 from .home_assistant import HomeAssistant
-from .validate import main as splogin_validate
-
-
-class StoreMutuallyExclusiveFlags(Action):
-    """A custom argparse action to store the flag of an argument."""
-
-    FLAG_VARIABLE = "action"
-    DEFAULT_FLAG = "DEFAULT_FLAG"
-
-    def __call__(
-        self,
-        parser: ArgumentParser,
-        namespace: Namespace,
-        values: str | Sequence[Any] | None,
-        option_string: str | None = None
-    ) -> None:
-        """Validate option exclusivity, store flag and given value."""
-        if getattr(namespace, self.FLAG_VARIABLE) == self.DEFAULT_FLAG:
-            parser.error("options --{get, set, del} are mutually exclusive")
-        setattr(namespace, self.FLAG_VARIABLE, option_string[2:])
-        setattr(namespace, self.dest, values)
+from . import validate as splogin_validate
 
 
 class CommandLineInterface:
@@ -131,10 +111,6 @@ class CommandLineInterface:
         username_help: str,
     ):
         """Add a subcommand parser for managing credentials."""
-        # alias 0 | Spotify     | Home Assistant
-        # alias 1 | credentials | instance
-        # alias 2 | password    | token
-
         env_var_flag = f"--{handler.SECRET_TYPE}"
         env_var = (
             f"{handler.SERVICE_ALIAS.upper()}_{handler.SECRET_TYPE.upper()}"
@@ -144,7 +120,8 @@ class CommandLineInterface:
             f"manage {handler.SERVICE_ALIAS} {handler.SECRET_ALIAS}",
             epilog=(
                 f"'splogin {command} rm' "
-                "removes existing {handler.SECRET_ALIAS}\n"
+                f"removes existing {handler.SECRET_ALIAS}\n"
+
                 f"{env_var_flag} can also be set via "
                 "${" + self.env_var_prefix + env_var + "}"
             )

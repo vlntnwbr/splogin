@@ -1,20 +1,27 @@
 """Handler and entrypoint for automated Spotify Web login."""
 
 from argparse import Namespace
+from dataclasses import dataclass  # , fields
 from logging import Logger
 
 from playwright.sync_api import sync_playwright
 
-from . import (
-    BrowserUnavailableError,
-    CredentialsError,
-    CredentialManager,
-    SpotifyAuthCookie
-)
+from splogin.utils.errors import SpotifyLoginError
+
+from .utils.errors import BrowserUnavailableError, CredentialsError
+
+from .utils.credentials import CredentialManager
 
 
-class SpotifyLoginError(BaseException):
-    """Raised for errors during automated Spotify Web login."""
+@dataclass(frozen=True, repr=True, )
+class SpotifyAuthCookie:
+    """Container for the Spotify Session cookie values."""
+
+    sp_dc: str
+    sp_key: str
+
+    # TODO add iter_cookie_names
+    # TODO add __dict__
 
 
 class SpotifyWebLogin(CredentialManager):
