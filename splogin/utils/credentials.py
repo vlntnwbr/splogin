@@ -30,7 +30,10 @@ class CredentialManager:
         credentials = keyring.get_credential(self.SERVICE_NAME, None)
         if credentials is None:
             raise CredentialsError(f"{self.SERVICE_NAME}: no credentials")
-        # TODO raise exception for existing credentials without password
+        if credentials.password is None:
+            raise CredentialsError(
+                f"{self.SERVICE_NAME}: no password for {credentials.username}"
+            )
         self.credentials = credentials
 
     def __str__(self) -> str:
@@ -87,7 +90,12 @@ class CredentialManager:
         ) as exc:
             log_error(log, exc)
 
-    # TODO @classmethod get_username_input
+    @classmethod
+    def get_username_input(cls, prompt: str | None) -> str:
+        """Prompt for user input and return stripped text."""
+        return input("Enter {}: ".format(
+            prompt if prompt is not None else cls.SECRET_ALIAS.capitalize()
+        )).strip()
 
     @classmethod
     def _raise_for_missing_service_name(cls) -> None:
