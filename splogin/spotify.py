@@ -1,8 +1,9 @@
 """Handler and entrypoint for automated Spotify Web login."""
 
 from argparse import Namespace
-from dataclasses import dataclass  # , fields
+from dataclasses import dataclass, fields
 from logging import Logger
+from typing import Any, Generator, TypeVar
 
 from playwright.sync_api import sync_playwright
 
@@ -12,16 +13,38 @@ from .utils.errors import BrowserUnavailableError, CredentialsError
 
 from .utils.credentials import CredentialManager
 
+CookieValue = TypeVar("CookieValue", bool, float, str)
+Cookie = TypeVar("Cookie", dict[str, CookieValue])
+
 
 @dataclass(frozen=True, repr=True, )
 class SpotifyAuthCookie:
-    """Container for the Spotify Session cookie values."""
+    """Container for Spotify cookie using its fields as cookie names."""
 
     sp_dc: str
     sp_key: str
 
-    # TODO add iter_cookie_names
-    # TODO add __dict__
+    @classmethod
+    def iter_cookie_names(cls) -> Generator[str, Any, None]:
+        """Iterate over all cookies whose values must be extracted."""
+        for cookie in fields(cls):
+            yield cookie.name
+
+    @classmethod
+    def from_playwright_cookies(cls, cookies: list[Cookie]):
+        """Extract values from playwright Spotify Login cookies."""
+        return cls(**{
+            cookie_name: cls.get_cookie_value_by_name(cookie_name, cookies)
+            for cookie_name in cls.iter_cookie_names()
+        })
+
+    @staticmethod
+    def get_cookie_value_by_name(
+        name: str,
+        cookies: list[Cookie]
+    ) -> CookieValue:
+        """Return value for the cookie with the given name"""
+        return next(c["value"] for c in cookies if c["name"] == name)
 
 
 class SpotifyWebLogin(CredentialManager):
@@ -88,9 +111,7 @@ class SpotifyWebLogin(CredentialManager):
 
                 self.log.debug("extracting cookies")
                 cookies = context.cookies()
-                sp_dc = next(c for c in cookies if c["name"] == "sp_dc")
-                sp_key = next(c for c in cookies if c["name"] == "sp_key")
-                return SpotifyAuthCookie(sp_dc, sp_key)
+                return SpotifyAuthCookie.from_playwright_cookies(cookies)
         except Exception as exc:
             raise SpotifyLoginError(
                 f"Unable to log into spotify as {self}"
