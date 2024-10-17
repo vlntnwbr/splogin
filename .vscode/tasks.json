@@ -3,8 +3,7 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        {
-            "label": "run all checks",
+        {"label": "run all checks",
             "detail": "pydocstyle -> pylint -> flake8 -> bandit",
             "problemMatcher": [],
             "group": {
@@ -17,10 +16,9 @@
                 "flake8-checks",
                 "bandit-checks",
             ],
-            "dependsOrder": "sequence"
+            "dependsOrder": "parallel"
         },
-        {
-            "label": "bandit-checks",
+        {"label": "bandit-checks",
             "detail": "Check for security vulnerabilities using python-bandit.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -29,8 +27,7 @@
             ],
             "group": "test"
         },
-        {
-            "label": "pydocstyle-check",
+        {"label": "pydocstyle-check",
             "detail": "Check documentation using pydocstyle.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -39,8 +36,7 @@
             ],
             "group": "test"
         },
-        {
-            "label": "flake8-checks",
+        {"label": "flake8-checks",
             "detail": "lint code using flake8.",
             "problemMatcher": [],
             "command": "pipenv",
@@ -49,8 +45,7 @@
             ],
             "group": "test"
         },
-        {
-            "label": "pylint-checks",
+        {"label": "pylint-checks",
             "detail": "lint code using pylint.",
             "problemMatcher": [],
             "command": "pipenv",
