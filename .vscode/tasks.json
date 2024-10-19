@@ -53,6 +53,18 @@
                 "run", "pylint", "-f", "colorized", "splogin"
             ],
             "group": "test"
+        },
+        {
+            "label": "python -m build",
+            "detail": "run checks and on success build package",
+            "dependsOn": ["run all checks"],
+            "dependsOrder": "sequence",
+            "command": "py",
+            "args": ["-m", "build"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

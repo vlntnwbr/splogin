@@ -9,6 +9,7 @@ requests = "*"
 keyring = "*"
 
 [dev-packages]
+build = "*"
 flake8 = "*"
 pylint = "*"
 pylint-exit = "*"

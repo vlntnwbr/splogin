@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "8ccf4c5be3ed939b47e59c6655865c85ec59a7d40bb393d08b0734ed79baa440"
+            "sha256": "a8d2809cc700a93276eee844eeeea6e62f1df3931151031908c87d9a1c6c730e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -343,6 +343,14 @@
             "index": "pypi",
             "version": "==1.7.10"
         },
+        "build": {
+            "hashes": [
+                "sha256:1d61c0887fa860c01971625baae8bdd338e517b836a2f70dd1f7aa3a6b2fc5b5",
+                "sha256:b36993e92ca9375a219c99e606a122ff365a760a2d4bba0caa09bd5278b608b7"
+            ],
+            "index": "pypi",
+            "version": "==1.2.2.post1"
+        },
         "colorama": {
             "hashes": [
                 "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44",
@@ -398,6 +406,14 @@
             ],
             "markers": "python_version >= '3.7'",
             "version": "==0.1.2"
+        },
+        "packaging": {
+            "hashes": [
+                "sha256:026ed72c8ed3fcce5bf8950572258698927fd1dbda10a5e981cdf0ac37f4f002",
+                "sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
+            ],
+            "markers": "python_version >= '3.8'",
+            "version": "==24.1"
         },
         "pbr": {
             "hashes": [
@@ -461,6 +477,14 @@
                 "sha256:b6ad02884c01c5560a5275079fe5a6c792afff90ecccf0c02513e1547ee280b0"
             ],
             "index": "pypi",
+            "version": "==1.2.0"
+        },
+        "pyproject-hooks": {
+            "hashes": [
+                "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8",
+                "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913"
+            ],
+            "markers": "python_version >= '3.7'",
             "version": "==1.2.0"
         },
         "pyyaml": {
