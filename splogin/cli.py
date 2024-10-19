@@ -8,10 +8,17 @@ from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from pathlib import Path
 from typing import Callable
 
+from .utils import get_logger, log_error, playwright_install
+from .utils.errors import (
+    BrowserUnavailableError,
+    CredentialError,
+    HomeAssistantApiError,
+    SPLoginException
+)
+
 from .utils.credentials import CredentialManager
 from .spotify import SpotifyWebLogin
 from .home_assistant import HomeAssistant
-from . import validate as splogin_validate, run as splogin_run
 
 
 class CommandLineInterface:
@@ -63,6 +70,11 @@ class CommandLineInterface:
         else:
             self.argument_parser.print_help()
 
+    @classmethod
+    def entrypoint(cls) -> None:
+        """Run the application without returning an instance."""
+        cls()
+
     def get_env_file(self) -> Path | None:
         """Return the filepath for the --env-file argument."""
         try:
@@ -83,7 +95,7 @@ class CommandLineInterface:
                 env_file.absolute().read_text().splitlines()
                 if line.strip() and not line.startswith("#")
             )
-        except BaseException as exc:  # pylint: disable=broad-exception-caught
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             self.argument_parser.error(
                 f"argument {self.env_file_flag}: "
                 f"error loading '{env_file}': "
@@ -154,7 +166,7 @@ class CommandLineInterface:
             """Set fix option in args and return validate handler."""
             setattr(args, "fix", True)
             setattr(args, "service_name", "splogin-init")
-            return splogin_validate(args)
+            return validate(args)
 
         sub_parser = self._add_subcommand(
             "init", "interactively add missing dependencies",
@@ -209,19 +221,48 @@ class CommandLineInterface:
             default="login-password"
         )
 
-        self._add_common_options(splogin_run, sub_parser)
+        self._add_common_options(run, sub_parser)
 
     def add_validate_command(self) -> None:
         """Add the parser for the 'validate' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
-            "validate", "check if splogin is ready to run"
+            "validate", "check if splogin is ready to run",
+            max_help_position=40
         )
         sub_parser.add_argument(
             "--fix",
             action="store_true",
             help="set this to be prompted to fix every validation warning"
         )
-        self._add_common_options(splogin_validate, sub_parser)
+        self._add_env_var_arg(
+            "HOME_ASSISTANT_INSTANCE_URL",
+            "--hass-instance-url",
+            parser=sub_parser,
+            help="Home Assistant instance url for non-interactive --fix",
+            metavar="<url>"
+        )
+        self._add_env_var_arg(
+            "HOME_ASSISTANT_TOKEN",
+            "--hass-token",
+            parser=sub_parser,
+            help="Home Assistant Instance url for non-interactive --fix",
+            metavar="<token>"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_USER",
+            "--spotify-user",
+            parser=sub_parser,
+            help="Spotify Email or username for non-interactive --fix",
+            metavar="<user>"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_PASSWORD",
+            "--spotify-password",
+            parser=sub_parser,
+            help="Spotify password for non-interactive --fix",
+            metavar="<password>"
+        )
+        self._add_common_options(validate, sub_parser)
 
     def _add_subcommand(
             self,
@@ -294,6 +335,78 @@ class CommandLineInterface:
             help=help_msg,
             **add_argument_args
         )
+
+
+def run(args: Namespace) -> None:
+    """Entrypoint for subcommand 'splogin run'."""
+    log = get_logger("splogin", args.log_level)
+    log.debug(args)
+    log.info("Fetching Spotify credentials and Home Assistant instance")
+    try:
+        spotify_web_login = SpotifyWebLogin(log, args)
+        log.info("Using Spotify user %s", spotify_web_login)
+        home_assistant = HomeAssistant(log)
+        log.info("Using Home Assistant %s", home_assistant)
+        spotify_login = spotify_web_login()
+        log.info("Sending cookie data to Home Assistant")
+        home_assistant.trigger_event(args.event, vars(spotify_login))
+    except SPLoginException as exc:
+        log_error(log, exc)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        log_error(log, exc, "An unexpected error occurred.")
+
+
+def validate(args: Namespace):
+    """Entrypoint for subcommand 'splogin validate'."""
+    service_name = getattr(args, "service_name", "splogin-validate")
+    log = get_logger(service_name, args.log_level)
+    log.debug(args)
+
+    log.info("Checking existence and validity of Home Assistant instance")
+    try:
+        hass = HomeAssistant(log)
+        log.info("Using Home Assistant instance: %s", hass)
+    except (CredentialError, HomeAssistantApiError) as exc:
+        if isinstance(exc, CredentialError) and args.fix:
+            log.warning("No instance found. Creating now...")
+            instance = getattr(args, "hass_instance_url", None)
+            if instance is None:
+                instance = HomeAssistant.get_username_input("Instance URL")
+            setattr(args, HomeAssistant.get_username_arg_name(), instance)
+            setattr(args, "password", getattr(args, "hass_token", None))
+            HomeAssistant.cli(args)
+        else:
+            log.warning(exc)
+
+    log.info("Checking existence of credentials for Spotify Web login")
+    try:
+        spotify_login = SpotifyWebLogin(log)
+        log.info("Using Spotify User: %s", spotify_login)
+    except CredentialError:
+        if args.fix:
+            log.warning("No valid credentials found. Creating now...")
+            username = getattr(args, "spotify_user", None)
+            if username is None:
+                username = SpotifyWebLogin.get_username_input(
+                    "Spotify Email or username"
+                )
+            setattr(args, SpotifyWebLogin.get_username_arg_name(), username)
+            setattr(args, "password", getattr(args, "spotify_password", None))
+            SpotifyWebLogin.cli(args)
+        else:
+            log.warning("Spotify User Not Set")
+
+    log.info("Checking Browser availability for Spotify Web Login")
+    try:
+        SpotifyWebLogin.validate_browser_availability()
+        log.info("Browser for playwright is installed")
+    except BrowserUnavailableError:
+        log.warning("Found no usable Browser for playwright")
+        if args.fix:
+            try:
+                playwright_install()
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                log_error(log, exc, "Cannot install browser for playwright.")
 
 
 if __name__ == "__main__":
