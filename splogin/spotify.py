@@ -42,7 +42,7 @@ class SpotifyAuthCookie:
         name: str,
         cookies: list[dict[str, CookieValue]]
     ) -> CookieValue:
-        """Return value for the cookie with the given name"""
+        """Return value for the cookie with the given name."""
         return next(c["value"] for c in cookies if c["name"] == name)
 
 

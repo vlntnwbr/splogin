@@ -11,7 +11,7 @@ from typing import Callable
 from .utils.credentials import CredentialManager
 from .spotify import SpotifyWebLogin
 from .home_assistant import HomeAssistant
-from . import validate as splogin_validate
+from . import validate as splogin_validate, run as splogin_run
 
 
 class CommandLineInterface:
@@ -38,6 +38,7 @@ class CommandLineInterface:
         )
 
         self.add_init_command()
+        self.add_run_command()
         self.add_validate_command()
         self.add_credential_command(
             "hass",
@@ -114,18 +115,17 @@ class CommandLineInterface:
         """Add a subcommand parser for managing credentials."""
         env_var_flag = f"--{handler.SECRET_TYPE}"
         env_var = (
-            f"{handler.SERVICE_ALIAS.upper()}_{handler.SECRET_TYPE.upper()}"
+            f"{handler.SERVICE_ALIAS.replace(' ', '_').upper()}"
+            f"_{handler.SECRET_TYPE.upper()}"
         )
         sub_parser = self._add_subcommand(
             command,
-            f"manage {handler.SERVICE_ALIAS} {handler.SECRET_ALIAS}",
+            message=f"manage {handler.SERVICE_ALIAS} {handler.SECRET_ALIAS}",
             epilog=(
                 f"'splogin {command} rm' "
-                f"removes existing {handler.SECRET_ALIAS}\n"
-
-                f"{env_var_flag} can also be set via "
-                "${" + self.env_var_prefix + env_var + "}"
-            )
+                f"removes existing {handler.SECRET_ALIAS}"
+            ),
+            max_help_position=len(env_var_flag) * 2 + 1
         )
 
         sub_parser.add_argument(
@@ -148,6 +148,69 @@ class CommandLineInterface:
 
         self._add_common_options(handler.cli, sub_parser)
 
+    def add_init_command(self) -> None:
+        """Add a command as an alias for 'validate --fix'."""
+        def init_handler(args: Namespace) -> Callable[[Namespace], None]:
+            """Set fix option in args and return validate handler."""
+            setattr(args, "fix", True)
+            setattr(args, "service_name", "splogin-init")
+            return splogin_validate(args)
+
+        sub_parser = self._add_subcommand(
+            "init", "interactively add missing dependencies",
+            "behaves identically to 'splogin validate --fix'\n"
+        )
+        self._add_common_options(init_handler, sub_parser)
+
+    def add_run_command(self) -> None:
+        """Add the parser for the 'run' command to the CLI."""
+        sub_parser = self._add_subcommand(
+            "run", "perform Spotify Web login and send data to Home Assistant",
+            max_help_position=32
+        )
+        self._add_env_var_arg(
+            "HOME_ASSISTANT_EVENT",
+            "-e", "--event",
+            parser=sub_parser,
+            help="event to trigger in Home Assistant",
+            metavar="<event>",
+            default="new_spotcast_authentication"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_LOGIN_PAGE",
+            "--spotify-login-page",
+            parser=sub_parser,
+            help="full URL to the Spotify login page",
+            metavar="<url>",
+            default="https://accounts.spotify.com/login"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_LOGIN_BUTTON",
+            "--spotify-login-button",
+            parser=sub_parser,
+            help="id of submit button HTML element on --spotify-login-page",
+            metavar="<id>",
+            default="login-button"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_LOGIN_USERNAME_FIELD",
+            "--spotify-username-field",
+            parser=sub_parser,
+            help="id of username form HTML element on --spotify-login-page",
+            metavar="<id>",
+            default="login-username"
+        )
+        self._add_env_var_arg(
+            "SPOTIFY_LOGIN_PASSWORD_FIELD",
+            "--spotify-password-field",
+            help="id of password field HTML element on --spotify-login-page",
+            parser=sub_parser,
+            metavar="<id>",
+            default="login-password"
+        )
+
+        self._add_common_options(splogin_run, sub_parser)
+
     def add_validate_command(self) -> None:
         """Add the parser for the 'validate' subcommand to the CLI."""
         sub_parser = self._add_subcommand(
@@ -160,37 +223,22 @@ class CommandLineInterface:
         )
         self._add_common_options(splogin_validate, sub_parser)
 
-    def add_init_command(self) -> None:
-        """Add a command as an alias for 'validate --fix'."""
-        def init_handler(args: Namespace) -> Callable[[Namespace], None]:
-            """Set fix option in args and return validate handler."""
-            setattr(args, "fix", True)
-            setattr(args, "service_name", "splogin-init")
-            return splogin_validate(args)
-
-        sub_parser = self._add_subcommand(
-            "init", "interactively add missing dependencies",
-            "behaves identically to 'splogin validate --fix'"
-        )
-        self._add_common_options(init_handler, sub_parser)
-
     def _add_subcommand(
             self,
             name: str,
-            help_message: str,
-            epilog: str = ""
+            message: str,
+            epilog: str = "",
+            max_help_position: int = 2
     ) -> ArgumentParser:
         """Create a parser used for a splogin subcommand."""
         return self.subcommands.add_parser(
             name,
-            description=help_message,
-            help=help_message,
-            formatter_class=RawTextHelpFormatter,
-            epilog=(
-                "--log can also be set via "
-                "${" + self.env_var_prefix + "LOG_LEVEL}\n"
-
-                f"{epilog}"
+            description=message,
+            help=message,
+            epilog=epilog,
+            formatter_class=lambda prog: RawTextHelpFormatter(
+                prog,
+                max_help_position=max(24, max_help_position * 8 + 1),
             )
         )
 
@@ -206,18 +254,22 @@ class CommandLineInterface:
 
         parser.add_argument(
             self.env_file_flag,
-            help="filepath pointing to an env file. Default: .env",
-            metavar="PATH",
-            type=Path
+            metavar="<path>",
+            type=Path,
+            help=(
+                "filepath pointing to an env file.\n"
+                + " cli values take precedent even if set"
+            )
         )
 
         self._add_env_var_arg(
             "LOG_LEVEL",
             "--log",
             parser=parser,
-            help="set the logging level, default: INFO",
+            help="set the logging level",
+            choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
             default="INFO",
-            metavar="LEVEL",
+            metavar="<level>",
             dest="log_level",
             type=lambda val: val.upper()
         )
@@ -229,11 +281,17 @@ class CommandLineInterface:
         parser: ArgumentParser | None = None,
         **add_argument_args
     ) -> None:
-        """Add an optional argument that can be set from environment."""
+        """Add an argument that can be set from environment."""
         default = add_argument_args.pop('default', None)
+        help_msg = "\n".join((
+            add_argument_args.pop("help", ""),
+            " overwrites ${" + self.env_var_prefix + env_var + "}",
+            f" default: {default}" if default is not None else "",
+        ))
         (self.argument_parser if parser is None else parser).add_argument(
             *name_or_flags,
             default=os.getenv(self.env_var_prefix + env_var, default),
+            help=help_msg,
             **add_argument_args
         )
 

@@ -1,7 +1,7 @@
 """Package for utilities used by splogin."""
 
 import logging
-import subprocess
+import subprocess  # nosec
 import sys
 
 from .errors import BrowserUnavailableError
@@ -33,7 +33,7 @@ def log_error(
 def playwright_install(browser: str = "firefox") -> None:
     """Install browser using playwright cli in the python directory."""
     try:
-        subprocess.run(
+        subprocess.run(  # nosec
             (sys.executable, "-m", "playwright", "install", browser),
             check=True
         )

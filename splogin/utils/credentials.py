@@ -99,6 +99,7 @@ class CredentialManager:
     @classmethod
     def get_username_input(cls, prompt: str | None = None) -> str:
         """Prompt for user input and return stripped text."""
+        # pylint: disable=consider-using-f-string
         return input("Enter {}: ".format(
             prompt if prompt is not None else cls.SECRET_ALIAS.capitalize()
         )).strip()

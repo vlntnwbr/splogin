@@ -8,7 +8,8 @@ from .utils import get_logger, log_error, playwright_install
 from .utils.errors import (
     BrowserUnavailableError,
     CredentialError,
-    HomeAssistantApiError
+    HomeAssistantApiError,
+    SPLoginException
 )
 
 
@@ -16,6 +17,19 @@ def run(args: Namespace) -> None:
     """Entrypoint for subcommand 'splogin run'."""
     log = get_logger("splogin", args.log_level)
     log.debug(args)
+    log.info("Fetching Spotify credentials and Home Assistant instance")
+    try:
+        spotify_web_login = SpotifyWebLogin(log, args)
+        log.info("Using Spotify user %s", spotify_web_login)
+        home_assistant = HomeAssistant(log)
+        log.info("Using Home Assistant %s", home_assistant)
+        spotify_login = spotify_web_login()
+        log.info("Sending cookie data to Home Assistant")
+        home_assistant.trigger_event(args.event, vars(spotify_login))
+    except SPLoginException as exc:
+        log_error(log, exc)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        log_error(log, exc, "An unexpected error occurred.")
 
 
 def validate(args: Namespace):
